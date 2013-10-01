@@ -1,0 +1,104 @@
+from __future__ import division, print_function
+from sqlite1 import *
+from SWAPRrubric import *
+
+def createFinalGradesTable(db):
+	db.cursor.execute("CREATE TABLE IF NOT EXISTS finalGrades (labNumber int, wID text, URL text, finalGrade number DEFAULT 0, finalGradeVector text)")
+	db.conn.commit()
+
+def setGrade(db,URL,labNumber, calibrated = True):
+	# We want to calculate the final grade for a given URL
+	# We must know which rubric items count toward the grade
+	gradedDict = getRubricGradedDict(db,labNumber)
+	# We must know what each response is worth for each item
+	rubricValuesDict = getRubricValuesDict(db,labNumber)
+
+	# TODO: make this work for any number of weight elements, not just 6
+	db.cursor.execute("SELECT student.wID, grade, weight1, weight2, weight3, weight4, weight5, weight6 FROM grades, weightsBIBI, student WHERE grades.URL = ? AND grades.wID = weightsBIBI.wID AND grades.labNumber = ? AND weightsBIBI.labNumber = grades.labNumber AND student.Lab1URL = grades.URL",[URL,labNumber])
+	responses = db.cursor.fetchall()
+
+	if len(responses) > 0:
+		# print("URL has "+str(len(data))+" student responses.")
+		doOnce = True
+		for d in responses:
+			response = stringToList(d[1])
+			# First, remove all the non-graded items from the response
+			grade = []
+			for i in range(len(response)):
+				if gradedDict[i+1]:	# Items in the db are 1-indexed
+					grade.append(int(response[i]))
+			if doOnce:
+				wID = str(d[0])
+				numerators = len(grade)*[0]
+				denominators = len(grade)*[0]
+				doOnce = False
+			weight = [float(entry) for entry in d[2:]]
+			# Now, we construct an item-by-item weighted average
+			for i in range(len(grade)):
+				if calibrated:
+					numerators[i] += weight[i]*rubricValuesDict[i][grade[i]]	# Calibrated
+					denominators[i] += weight[i]
+				else:
+					numerators[i] += rubricValuesDict[i][grade[i]]	# Uncalibrated
+					denominators[i] += 1
+
+		# Now we need to actually assign the proper points, bearing in mind that some sets of graders might all have 0 weight for a given item. If such a case occurs, that item receives the grade from the student's own self-evaluation.
+		
+		db.cursor.execute("SELECT grade FROM grades, student WHERE  grades.wID = student.wID AND grades.URL = student.lab1URL AND student.lab1URL = ?",[URL])
+		selfResponse = [str(item[0]) for item in db.cursor.fetchall()]
+		if len(selfResponse) == 1:
+			selfResponse = stringToList(selfResponse[0])
+			selfGrade = []
+			for i in range(len(selfResponse)):
+				if gradedDict[i+1]:	# Items in the db are 1-indexed
+					selfGrade.append(int(selfResponse[i]))
+
+		finalGradeVector = []
+
+		for i in range(len(grade)):
+			if denominators[i] > 0:
+				finalGradeVector.append(numerators[i]/denominators[i])
+			# If the graders all have 0 weight for this item, then get the student's own grade for that item
+			elif len(selfGrade) == len(gradedDict):	# Check to make sure the student actually graded their own video
+				print("The owner of "+URL+" is receiving their own grade for item "+str(i)+".")
+				finalGradeVector.append(selfGrade[i])
+
+			else:
+				# Otherwise, just give them full credit. INCENTIVE ALERT
+				finalGradeVector.append(max(rubricValuesDict[i]))
+				print("The owner of "+URL+" is receiving the max grade for item "+str(i)+".")
+			# finalGradeVector = [numerators[i]/denominators[i] for i in range(len(grade))]
+			finalGrade = sum(finalGradeVector)
+
+		# Insert the grades into the database
+		db.cursor.execute("INSERT INTO finalGrades VALUES (?, ?, ?, ?, ?)",[labNumber,wID,URL,finalGrade,listToString(finalGradeVector)])
+		db.conn.commit()
+
+
+def assignGrades(db,labNumber, calibrated = True):
+	db.cursor.execute("SELECT wID, lab"+str(labNumber)+"URL FROM student WHERE lab1URL IS NULL OR lab1URL IS NOT NULL")
+	data = db.cursor.fetchall()
+	for d in data:
+		if str(d[1]) not in ['', None]:
+			# Assign grades to students who submitted videos
+			setGrade(db,str(d[1]),labNumber,calibrated)
+		else:
+			# Assign zeroes to students who did not submit videos
+			db.cursor.execute("INSERT INTO finalGrades VALUES (?, ?, ?, ?, ?)",[labNumber, str(d[0]), None, 0, listToString([0,0,0,0,0,0]) ])
+	db.conn.commit()
+
+def printGradesReport(db, filename, labNumber):
+    maxScore = getMaxScore(db, labNumber)
+    rubricValuesDict = getRubricValuesDict(db, labNumber)
+    db.cursor.execute("SELECT student.wID, finalGrade, weightSum, finalGradeVector FROM student, finalGrades, weightsBIBI WHERE student.wID = finalGrades.wID AND student.wID = weightsBIBI.wID")
+    with open(filename,'w') as output:
+        output.write('Student\tTotal Grade\tPeer Grade\tCalibration Grade\tParticipation Grade\n')
+        for student in db.cursor.fetchall():
+            peerGrade = float(student[1])*(100/maxScore)
+            calibrationGrade = 100*float(student[2])/(len(rubricValuesDict))
+            if peerGrade != 0:
+                participationGrade = 100
+            else:
+                participationGrade = 0
+            totalGrade = 0.5*peerGrade + 0.25*calibrationGrade + 0.25*participationGrade
+            output.write(str(student[0])+'\t'+str(totalGrade)+'\t'+str(peerGrade)+'\t'+str(calibrationGrade)+'\t'+str(participationGrade)+'\n')
