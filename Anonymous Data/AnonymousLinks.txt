@@ -1,0 +1,19 @@
+PHYS 2211, section N03, Fall 2013
+Downloader's wID
+Thursday, September 26, 2013 12:51 AM EDT
+
+Assignment Name	Lab 2 Motion of a Falling Object - Submission
+Due	Sep 23, 2013 11:59 PM EDT
+Questions			Total	2691322	2677799	2072998	
+Points				1	10	5	
+Fullname	Username	Student ID
+01Last, 01First	student01@gatech	000000001		http://youtu.be/youtube0001	01pythonfile.py	460
+02Last, 02First	student02@gatech	000000002		http://www.youtube.com/watch?v=youtube0002&feature=youtu.be	02pythonfile.py	610
+03Last, 03First	student03@gatech			http://www.youtube.com/watch?v=youtube0003&feature=youtu.be	03pythonfile.py	180
+04Last, 04First	student04@gatech	000000004		https://www.youtube.com/watch?v=youtube0004	04 python file.py	570
+05Last, 05First	student05@gatech	000000005		http://www.youtube.com/watch?v=youtube0005&feature=youtu.be	05pythonfile.py	290
+06Last, 06First	student06@gatech	000000006		http://www.youtube.com/watch?v=youtube0006&feature=youtube_gdata	06pythonfile.py	980
+07Last, 07First	student07@gatech			http://www.youtube.com/watch?v=youtube0007	07pythonfile.py	560
+08Last, 08Last Name	student08@gatech			https://www.youtube.com/watch?v=youtube0008&feature=youtu.be	08pythonfile.py	850
+09Last, 09First	student09@gatech			http://www.youtube.com/watch?v=youtube0009	lab2start.py	300
+10Last, 10First	student10@gatech			http://www.youtube.com/watch?v=youtube10&feature=youtu.be	10pythonfile.py	210
