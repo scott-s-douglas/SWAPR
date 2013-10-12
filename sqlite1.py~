@@ -66,12 +66,6 @@ class SqliteDB:
 					URL = "DUPLICATEURL"
 					self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?,?)", [labNumber, wID, URL,'',''])	
 			self.conn.commit()	
-	def addEmail(self, wID, email):
-		try:
-			self.cursor.execute("INSERT INTO student VALUES (?,?,?)", [wID, email])
-		except:
-			print "wID: " + wID + " or email: " + email + " already in database."
-
 	#retrieves URL for a specific student and specific lab number
 	def getURL(self, wID, labNumber):
 		
@@ -267,7 +261,7 @@ class SqliteDB:
 		
 
 
-if False:
+if True:
 	os.remove("test.db")
 	makeDatabase("test.db")
 	sqldb = SqliteDB("test.db")

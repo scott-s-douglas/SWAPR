@@ -48,11 +48,11 @@ def getURLsToGradeLab1Debug(wID, fixFilename):
         return URLs
 
 def lab1URLfix(db, fixFilename):
-    db.cursor.execute("SELECT wID FROM submissions")
+    db.cursor.execute("SELECT wID FROM student")
     wIDs = db.cursor.fetchall()
     for wID in wIDs:
         URLs = getURLsToGradeLab1Debug(str(wID[0]),fixFilename)
-        db.cursor.execute("UPDATE submissions SET Lab1URLSToGrade=? WHERE wID=?", (listToString(URLs), str(wID[0])))
+        db.cursor.execute("UPDATE student SET Lab1URLSToGrade=? WHERE wID=?", (listToString(URLs), str(wID[0])))
     db.conn.commit()
 
 print("Generating campus assignment...")

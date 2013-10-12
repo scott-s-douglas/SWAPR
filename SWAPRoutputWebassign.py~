@@ -44,7 +44,7 @@ def writeCommentsWebassign(db,filename,labNumber):
 
 
             for wID in wIDs:
-                  db.cursor.execute("SELECT grade FROM grades, submissions WHERE submissions.Lab"+str(labNumber)+"URL = grades.URL AND submissions.wID = ?",[wID])
+                  db.cursor.execute("SELECT grade FROM grades, student WHERE student.Lab"+str(labNumber)+"URL = grades.URL AND student.wID = ?",[wID])
                   responses = [stringToList(str(d[0])) for d in db.cursor.fetchall()]
                   if len(responses) > 0:
                         peerComments = []
