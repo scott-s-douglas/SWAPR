@@ -44,7 +44,7 @@ def parseLinksFile(filename,db,labNumber,skipLinkless = False):
                 URL=getYoutubeLink(data[line][studentLinkCol])
                 if URL is not '' or not skipLinkless:
                     # if skipLinkless, then we won't add people who haven't submitted links
-                    db.addEntry(wID,URL,labNumber,overwrite = True)
+                    db.addEntry(wID,URL,labNumber)
                     reportEntries.append([wID,URL,None])
         line += 1
     return reportEntries
@@ -129,11 +129,11 @@ def parseResponsesFile(filename,db,labNumber):
 
                     for i in range(len(questions)):
                         if collatedResponses[i*R] != '':   # Check that the student actually graded that video
-                            try:
+                            # try:
                                 # The questions are 1-indexed in the database
                                 # TODO: rename the methods associated with this data to "responses" rather than "grades"
-                                db.addGrade( wID, labNumber, URL = URLsGraded[questionIndexDict[questions[i]]-1], grade =collatedResponses[i*R:(i+1)*R], practice = questionPracticeDict[questions[i]] )
-                            except:
-                                print(wID+' grade assignment failed.')
+                            db.addGrade( wID, labNumber, URL = URLsGraded[questionIndexDict[questions[i]]-1], grade =collatedResponses[i*R:(i+1)*R], practice = questionPracticeDict[questions[i]] )
+                            # except:
+                                # print(wID+' grade assignment failed.')
 
             line += 1

@@ -76,7 +76,7 @@ def setGrade(db,URL,labNumber, calibrated = True):
 
 
 def assignGrades(db,labNumber, calibrated = True):
-	db.cursor.execute("SELECT wID, URL FROM submissions WHERE labNumber = ? AND lab1URL IS NULL OR lab1URL IS NOT NULL". [labNumber])
+	db.cursor.execute("SELECT wID, URL FROM submissions WHERE labNumber = ? AND URL IS NULL OR URL IS NOT NULL", [labNumber])
 	data = db.cursor.fetchall()
 	for d in data:
 		if str(d[1]) not in ['', None]:
@@ -90,7 +90,7 @@ def assignGrades(db,labNumber, calibrated = True):
 def printGradesReport(db, filename, labNumber):
     maxScore = getMaxScore(db, labNumber)
     rubricValuesDict = getRubricValuesDict(db, labNumber)
-    db.cursor.execute("SELECT submissions.wID, finalGrade, weightSum, finalGradeVector FROM student, finalGrades, weightsBIBI WHERE submissions.wID = finalGrades.wID AND submissions.wID = weightsBIBI.wID")
+    db.cursor.execute("SELECT submissions.wID, finalGrade, weightSum, finalGradeVector FROM submissions, finalGrades, weightsBIBI WHERE submissions.wID = finalGrades.wID AND submissions.wID = weightsBIBI.wID")
     with open(filename,'w') as output:
         output.write('Student\tTotal Grade\tPeer Grade\tCalibration Grade\tParticipation Grade\n')
         for student in db.cursor.fetchall():

@@ -57,12 +57,12 @@ def lab1URLfix(db, fixFilename):
 
 print("Generating campus assignment...")
 try:
-    os.remove("campus.db")
+    os.remove("testReconcile.db")
 except:
     pass
-makeDatabase("campus.db")
-campusdb = SqliteDB("campus.db")
-campusdb.createTables(5)
+makeDatabase("testReconcile.db")
+campusdb = SqliteDB("testReconcile.db")
+campusdb.createTables()
 
 # Parse all the files in the campus folder
 print("Parsing links files...")
@@ -76,11 +76,11 @@ parseExpertsFile('Lab1Experts.txt',campusdb,1)
 print("Finalizing database...")
 campusdb.finalize(1, randomSeed, 3)
 
-print("Applying Lab 1 fix...")
-lab1URLfix(campusdb,"campusBackup.txt")
+# print("Applying Lab 1 fix...")
+# lab1URLfix(campusdb,"testReconcile.txt")
 
 print("Exporting WebAssign question...")
-exportWebassign('campus.txt',campusdb,1)
+exportWebassign('testReconcile.txt',campusdb,1)
 
 print("Initializing weights table...")
 createWeightsTableBIBI(campusdb)

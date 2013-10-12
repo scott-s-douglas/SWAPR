@@ -36,7 +36,7 @@ def perform(f, *args):
 
 def assignWeightsBIBI(db,labNumber,f):
 	# Get all the wIDs of people who turned in grades
-	db.cursor.execute("SELECT wID FROM student")
+	db.cursor.execute("SELECT wID FROM submissions")
 	wIDs = set([str(d[0]) for d in db.cursor.fetchall()])
 	for wID in wIDs:
 		db.cursor.execute("SELECT wID, grades.grade, expert.grade, grades.URL FROM grades, expert WHERE grades.URL = expert.URL AND grades.labNumber = ? AND expert.labNumber = ? AND NOT grades.practice AND wID = ?",[labNumber,labNumber,wID])

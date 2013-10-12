@@ -13,11 +13,11 @@ def makeDatabase(databaseName):
 def listToString(list):
 	string = ""
 	for i in list:
-		string += str(i)+","
+		string += str(i)+"\t"
 	return string[:-1] 
 
 def stringToList(string):
-	list = [str(line) for line in string.split(',')]
+	list = [str(line) for line in string.split('\t')]
 	return list
 
 #class for connecting, inserting, and retrieving information from a sqlite3 database
@@ -38,11 +38,10 @@ class SqliteDB:
 	def createTables(self):
 		#creates tables if they do not exist
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS student (wID text, email text, UNIQUE(wID, email) ON CONFLICT ABORT)")
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS submissions (labNumber int, wID text, URL text, URLsToGrade text, Grade real)")
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS submissions (labNumber int, wID text, URL text, URLsToGrade text)")
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS uniqueStudentURL (labNumber int, wID text, URL text, UNIQUE(URL) ON CONFLICT ABORT)")
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS expert (labNumber int, URL text, grade text, hidden int, PRIMARY KEY(labNumber, URL, hidden))")
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS grades (labNumber int, URL text, wID text, grade text, PRIMARY KEY(labNumber, URL, grade))")	
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS weight (wID text, weight real, UNIQUE(wID))")
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS grades (labNumber int, URL text, wID text, grade text, practice boolean,  PRIMARY KEY(labNumber, URL, grade))")	
 		##check to see if the tables have already been created
 		#creates columns in tables for each lab specified
 		self.conn.commit()
@@ -52,19 +51,19 @@ class SqliteDB:
 		if self.databaseName != None and self.conn != None and self.cursor !=None:
 			#If the student did not submit a URL (aka the inputted URL is '')
 			if URL == '':
-				self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?,?)", [labNumber, wID, URL,'',''])	
+				self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?)", [labNumber, wID, URL,''])	
 			#try putting the student and its URL into the uniqueStudentURL database to check if the URL is unique
 			else:	
 				try:
 					self.cursor.execute("INSERT INTO uniqueStudentURL VALUES (?,?,?)", [labNumber, wID, URL])
 					#if there is no error in inserting to a table where URL has to be unique, put it in the actual student database
-					self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?,?)", [labNumber, wID, URL,'',''])	
+					self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?)", [labNumber, wID, URL,''])	
 				#if the try fails, that means that the URL is already in the db, duplicate URL found!
 				except:
 					self.cursor.execute("SELECT wID FROM uniqueStudentURL WHERE URL=?", [URL])
 					print "URL: " + URL + " was initially submitted by: " + self.cursor.fetchall()[0][0]
 					URL = "DUPLICATEURL"
-					self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?,?)", [labNumber, wID, URL,'',''])	
+					self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?)", [labNumber, wID, URL,''])	
 			self.conn.commit()	
 	def addEmail(self, wID, email):
 		try:
@@ -212,11 +211,11 @@ class SqliteDB:
 		else:
 			return [i for i in stringToList(dbExtract[0])]
 	
-	def addGrade(self, wID, labNumber, URL, grade):
+	def addGrade(self, wID, labNumber, URL, grade , practice = False):
 		URLsToGrade = self.getURLsToGrade(wID, labNumber)
 		if URLsToGrade != False:
 			if URL in URLsToGrade:
-				self.cursor.execute("INSERT INTO grades VALUES(?, ?, ?, ?)", [labNumber, URL, wID, listToString(grade)])
+				self.cursor.execute("INSERT INTO grades VALUES(?, ?, ?, ?, ?)", [labNumber, URL, wID, listToString(grade), practice])
 				self.conn.commit()
 			else:
 				print "wID: " + wID + " was not assigned to grade URL: " + URL

@@ -3,7 +3,7 @@ from SWAPRstrings import *
 
 def exportWebassign(filename,db,labNumber):
 
-    db.cursor.execute("SELECT wID FROM student")
+    db.cursor.execute("SELECT wID FROM submissions")
     wIDs = [str(item[0]) for item in db.cursor.fetchall()]
 
     with open(filename,'w') as output:
