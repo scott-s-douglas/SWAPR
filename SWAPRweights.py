@@ -39,7 +39,7 @@ def assignWeightsBIBI(db,labNumber,f):
 	db.cursor.execute("SELECT wID FROM submissions")
 	wIDs = set([str(d[0]) for d in db.cursor.fetchall()])
 	for wID in wIDs:
-		db.cursor.execute("SELECT wID, grades.grade, expert.grade, grades.URL FROM grades, expert WHERE grades.URL = expert.URL AND grades.labNumber = ? AND expert.labNumber = ? AND NOT grades.practice AND wID = ?",[labNumber,labNumber,wID])
+		db.cursor.execute("SELECT wID, grades.grade, experts.grade, grades.URL FROM grades, experts WHERE grades.URL = experts.URL AND grades.labNumber = ? AND experts.labNumber = ? AND NOT grades.practice AND wID = ?",[labNumber,labNumber,wID])
 		studentGradesTemp = []
 		expertGrades = []
 		data = db.cursor.fetchall()

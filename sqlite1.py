@@ -37,37 +37,37 @@ class SqliteDB:
 
 	def createTables(self):
 		#creates tables if they do not exist
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS student (wID text, email text, UNIQUE(wID, email) ON CONFLICT ABORT)")
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS submissions (labNumber int, wID text, URL text, URLsToGrade text)")
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS students (wID text, email text, UNIQUE(wID, email) ON CONFLICT ABORT)")
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS submissions (labNumber int, wID text, URL text, metadata text, URLsToGrade text)")
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS uniqueStudentURL (labNumber int, wID text, URL text, UNIQUE(URL) ON CONFLICT ABORT)")
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS expert (labNumber int, URL text, grade text, hidden int, PRIMARY KEY(labNumber, URL, hidden))")
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS experts (labNumber int, URL text, grade text, hidden int, PRIMARY KEY(labNumber, URL, hidden))")
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS grades (labNumber int, URL text, wID text, grade text, practice boolean,  PRIMARY KEY(labNumber, URL, grade))")	
 		##check to see if the tables have already been created
 		#creates columns in tables for each lab specified
 		self.conn.commit()
 
 	#adds a person into the database, works for both new users and existing ones 
-	def addEntry(self, wID, URL,labNumber):
+	def addEntry(self, wID, URL, labNumber, metadata = None):
 		if self.databaseName != None and self.conn != None and self.cursor !=None:
 			#If the student did not submit a URL (aka the inputted URL is '')
 			if URL == '':
-				self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?)", [labNumber, wID, URL,''])	
+				self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?,?)", [labNumber, wID, URL,metadata,''])	
 			#try putting the student and its URL into the uniqueStudentURL database to check if the URL is unique
 			else:	
 				try:
 					self.cursor.execute("INSERT INTO uniqueStudentURL VALUES (?,?,?)", [labNumber, wID, URL])
 					#if there is no error in inserting to a table where URL has to be unique, put it in the actual student database
-					self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?)", [labNumber, wID, URL,''])	
+					self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?,?)", [labNumber, wID, URL,metadata,''])	
 				#if the try fails, that means that the URL is already in the db, duplicate URL found!
 				except:
 					self.cursor.execute("SELECT wID FROM uniqueStudentURL WHERE URL=?", [URL])
 					print "URL: " + URL + " was initially submitted by: " + self.cursor.fetchall()[0][0]
 					URL = "DUPLICATEURL"
-					self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?)", [labNumber, wID, URL,''])	
+					self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?,?)", [labNumber, wID, URL,metadata,''])	
 			self.conn.commit()	
 	def addEmail(self, wID, email):
 		try:
-			self.cursor.execute("INSERT INTO student VALUES (?,?,?)", [wID, email])
+			self.cursor.execute("INSERT INTO students VALUES (?,?,?)", [wID, email])
 		except:
 			print "wID: " + wID + " or email: " + email + " already in database."
 
@@ -80,11 +80,11 @@ class SqliteDB:
 
 	def addExpertURL(self, labNumber, URL,  grade, hidden):
 		
-		self.cursor.execute("SELECT * FROM expert WHERE URL = ?", [URL])
+		self.cursor.execute("SELECT * FROM experts WHERE URL = ?", [URL])
 		#adds in a user if not in database already
 		presentURL = self.cursor.fetchone()
 		if presentURL ==  None:
-			self.cursor.execute("INSERT INTO expert VALUES (?, ?, ?, ?)", [labNumber, URL, listToString(grade), hidden])
+			self.cursor.execute("INSERT INTO experts VALUES (?, ?, ?, ?)", [labNumber, URL, listToString(grade), hidden])
 			self.conn.commit()	
 		elif presentURL == URL: 
 			print "The URL " + URL + " is already in the expert database"
@@ -97,7 +97,7 @@ class SqliteDB:
 		
 		#query = ("SELECT {0} FROM expert WHERE wID
 	def getExpertURLs(self, labNumber):
-		self.cursor.execute("SElECT URL, grade FROM expert where labNumber=?", [labNumber])
+		self.cursor.execute("SElECT URL, grade FROM experts where labNumber=?", [labNumber])
 		URLsAndGrades = {}
 		for d in self.cursor.fetchall():
 			URLsAndGrades[str(d[0])] = stringToList(str(d[1]))
@@ -107,12 +107,12 @@ class SqliteDB:
 		##randomize the youtube URLs
 		#for each wID
 			#put that into the databse under the student ID
-		self.cursor.execute("SELECT URL FROM expert WHERE labNumber=? and hidden=0", [labNumber])
+		self.cursor.execute("SELECT URL FROM experts WHERE labNumber=? and hidden=0", [labNumber])
 		expertURL = [str(d[0]) for d in self.cursor.fetchall()]
 		
 
 		# find all the hidden expert videos	
-		self.cursor.execute("SELECT URL FROM expert WHERE labNumber=? and hidden=1", [labNumber])
+		self.cursor.execute("SELECT URL FROM experts WHERE labNumber=? and hidden=1", [labNumber])
 		hiddenURL = [str(d[0]) for d in self.cursor.fetchall()]
 		
 		#get all the studnet URLs
@@ -174,7 +174,7 @@ class SqliteDB:
 		random.shuffle(data)
 		selectFrom = data + data[:N + len(expertURL) + 1]
 		if len(pseudoURL.keys()) > 0:
-			params = ("Lab" + str(labNumber) + "URLSToGrade", "Lab" + str(labNumber) + "URL")
+			# params = ("Lab" + str(labNumber) + "URLSToGrade", "Lab" + str(labNumber) + "URL")
 			for key in pseudoURL.keys():
 				startIndex = selectFrom.index(pseudoURL[key])
 				URLSToGrade = selectFrom[startIndex: startIndex+N+1]
@@ -200,7 +200,7 @@ class SqliteDB:
 				for i in hiddenURL: 
 					URLSToGrade.append(i)
 				random.shuffle(URLSToGrade)
-				params = ("Lab" + str(labNumber) + "URLSToGrade", "Lab" + str(labNumber) + "URL")
+				# params = ("Lab" + str(labNumber) + "URLSToGrade", "Lab" + str(labNumber) + "URL")
 				self.cursor.execute("UPDATE submissions SET URLsToGrade=? WHERE URL=? and labNumber=?", [listToString(expertURL + URLSToGrade), d, labNumber])
 		self.conn.commit()
 	def getURLsToGrade(self, wID, labNumber):
@@ -252,7 +252,7 @@ class SqliteDB:
 			grades[str(d[1])] = str(d[0])
 		return grades
 	def check(self, labNumber):
-		params = ("Lab" + str(labNumber) + "URL", "Lab" + str(labNumber) + "URLsToGrade", None)
+		# params = ("Lab" + str(labNumber) + "URL", "Lab" + str(labNumber) + "URLsToGrade", None)
 		self.cursor.execute("Select URL, URLsToGrade FROM submissions WHERE URL!= ''")
 		fetch = self.cursor.fetchall()
 		individualURL = [str(d[0]) for d in fetch]
