@@ -41,7 +41,22 @@ class SqliteDB:
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS submissions (labNumber int, wID text, URL text, metadata text, URLsToGrade text)")
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS uniqueStudentURL (labNumber int, wID text, URL text, UNIQUE(URL) ON CONFLICT ABORT)")
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS experts (labNumber int, URL text, grade text, hidden int, PRIMARY KEY(labNumber, URL, hidden))")
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS grades (labNumber int, URL text, wID text, grade text, practice boolean,  PRIMARY KEY(labNumber, URL, grade))")	
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS responses (labNumber int, URL text, wID text, response text, practice boolean,  PRIMARY KEY(labNumber, URL, response))")	
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS questions (labNumber int, questionNumber int, questionWebassignNumber int, practice boolean)")
+
+
+		weightString = ''
+		for i in range(6):
+			weightString += ', weight'+str(i+1)+' num'
+
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS weightsBIBI (labNumber int, wID text"+weightString+", weightSum num)")
+
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS rubrics (labNumber int, itemIndex int, itemType text, itemValues text, graded boolean, itemPrompt text)")
+
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS grades(labNumber int, wID text, URL text, finalGrade number, finalGradeVector number)")
+
+
+
 		##check to see if the tables have already been created
 		#creates columns in tables for each lab specified
 		self.conn.commit()
