@@ -1,4 +1,4 @@
-from SWAPRmoduletest import *
+from SWAPRrun import *
 
 def writeCommentsTabDelimited(db,filename,labNumber,writeEmails = False):
       with open(filename,'w') as output:

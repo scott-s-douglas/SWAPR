@@ -55,54 +55,56 @@ def lab1URLfix(db, fixFilename):
         db.cursor.execute("UPDATE submissions SET Lab1URLSToGrade=? WHERE wID=?", (listToString(URLs), str(wID[0])))
     db.conn.commit()
 
-print("Generating campus assignment...")
-try:
-    os.remove("testReconcile.db")
-except:
-    pass
-makeDatabase("testReconcile.db")
-campusdb = SqliteDB("testReconcile.db")
-campusdb.createTables()
+if False:
 
-# Parse all the files in the campus folder
-print("Parsing links files...")
-for file in listdir_nohidden('Lab 1 Campus/'):
-    parseLinksFile(file,campusdb,1)
-# Parse the experts file
-print("Parsing experts file...")
-parseExpertsFile('Lab1Experts.txt',campusdb,1)
-    # pydbCampus.append(entry)
+    print("Generating campus assignment...")
+    try:
+        os.remove("testReconcile.db")
+    except:
+        pass
+    makeDatabase("testReconcile.db")
+    campusdb = SqliteDB("testReconcile.db")
+    campusdb.createTables()
 
-print("Finalizing database...")
-campusdb.finalize(1, randomSeed, 3)
+    # Parse all the files in the campus folder
+    print("Parsing links files...")
+    for file in listdir_nohidden('Lab 1 Campus/'):
+        parseLinksFile(file,campusdb,1)
+    # Parse the experts file
+    print("Parsing experts file...")
+    parseExpertsFile('Lab1Experts.txt',campusdb,1)
+        # pydbCampus.append(entry)
 
-# print("Applying Lab 1 fix...")
-# lab1URLfix(campusdb,"testReconcile.txt")
+    print("Finalizing database...")
+    campusdb.finalize(1, randomSeed, 3)
 
-print("Exporting WebAssign question...")
-exportWebassign('testReconcile.txt',campusdb,1)
+    # print("Applying Lab 1 fix...")
+    # lab1URLfix(campusdb,"testReconcile.txt")
 
-print("Initializing weights table...")
-createWeightsTableBIBI(campusdb)
+    print("Exporting WebAssign question...")
+    exportWebassign('testReconcile.txt',campusdb,1)
 
-print("Adding rubric...")
-createRubricsTable(campusdb)
-addDefaultRubric(campusdb, 1)
+    print("Initializing weights table...")
+    createWeightsTableBIBI(campusdb)
 
-print("Adding question table...")
-createQuestionsTable(campusdb)
-addDefaultQuestions(campusdb, 1)
+    print("Adding rubric...")
+    createRubricsTable(campusdb)
+    addDefaultRubric(campusdb, 1)
 
-# Get the maximum score of one rubric
-maxScore = getMaxScore(campusdb,1)
+    print("Adding question table...")
+    createQuestionsTable(campusdb)
+    addDefaultQuestions(campusdb, 1)
 
-print("Parsing responses files...")
-for file in listdir_nohidden('Lab 1 Grades Campus/'):
-    parseResponsesFile(file,campusdb,1)
+    # Get the maximum score of one rubric
+    maxScore = getMaxScore(campusdb,1)
 
-print("Assigning weights...")
-assignWeightsBIBI(campusdb, 1, weightBIBI)
+    print("Parsing responses files...")
+    for file in listdir_nohidden('Lab 1 Grades Campus/'):
+        parseResponsesFile(file,campusdb,1)
 
-print("Assigning final grades...")
-createFinalGradesTable(campusdb)
-assignGrades(campusdb,1,calibrated = True)
+    print("Assigning weights...")
+    assignWeightsBIBI(campusdb, 1, weightBIBI)
+
+    print("Assigning final grades...")
+    createFinalGradesTable(campusdb)
+    assignGrades(campusdb,1,calibrated = True)
