@@ -53,7 +53,7 @@ class SqliteDB:
 
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS rubrics (labNumber int, itemIndex int, itemType text, itemValues text, graded boolean, itemPrompt text)")
 
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS grades(labNumber int, wID text, URL text, finalGrade number, finalGradeVector number)")
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS grades(labNumber int, wID text, URL text, finalGrade number, finalGradeVector text, rawGrade number, rawGradeVector text)")
 
 
 
@@ -230,7 +230,7 @@ class SqliteDB:
 		URLsToGrade = self.getURLsToGrade(wID, labNumber)
 		if URLsToGrade != False:
 			if URL in URLsToGrade:
-				self.cursor.execute("INSERT INTO grades VALUES(?, ?, ?, ?, ?)", [labNumber, URL, wID, listToString(grade), practice])
+				self.cursor.execute("INSERT INTO responses VALUES(?, ?, ?, ?, ?)", [labNumber, URL, wID, listToString(grade), practice])
 				self.conn.commit()
 			else:
 				print "wID: " + wID + " was not assigned to grade URL: " + URL
