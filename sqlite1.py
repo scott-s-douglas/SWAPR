@@ -91,7 +91,10 @@ class SqliteDB:
 		
 		self.cursor.execute("SELECT URL FROM submissions WHERE labNumber=? AND wID=?", [labNumber, wID])
 		URL = self.cursor.fetchone();
-		return (URL[0])
+		if URL is not None:
+			return (URL[0])
+		else:
+			return None
 
 	def addExpertURL(self, labNumber, URL,  grade, hidden):
 		

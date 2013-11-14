@@ -16,7 +16,7 @@ from copy import copy
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-from scipy.stats import sem
+# from scipy.stats import sem
 
 def listdir_nohidden(path):
     # Return only the non-hidden files in a directory, to avoid that annoying .DS_Store file
@@ -108,3 +108,88 @@ if False:
     print("Assigning final grades...")
     createFinalGradesTable(campusdb)
     assignGrades(campusdb,1,calibrated = True)
+
+if True:
+    db = SqliteDB("2211 Fall 2013 Public.db")
+    # db.cursor.execute("DROP TABLE students")
+    # db.cursor.execute("DROP TABLE rubrics")
+    # db.cursor.execute("DROP TABLE grades")
+    # db.conn.commit()
+    # db.createTables()
+
+    # Parse all the files in the campus folder
+    # db.cursor.execute("DELETE FROM submissions WHERE labNumber = 3")
+    # db.conn.commit()
+    # # db.cursor.execute("DELETE FROM experts WHERE labNumber = 4")
+    # # print("Parsing links files...")
+    # for file in listdir_nohidden('Lab 3 Public Links/'):
+    #     parseLinksFile(file,db,3,skipLinkless = True)
+
+    # db.cursor.execute("SELECT * FROM submissions WHERE labNumber = 3 AND wID LIKE '%hs_pugh%'")
+    # print(db.cursor.fetchall())
+    # # Parse the experts file
+    # print("Parsing experts files...")
+
+    # parseExpertsFile('Lab4Experts.txt',db,4)
+    # # parseExpertsFile('Lab2Experts.txt',db,2)
+    # # parseExpertsFile('Lab3Experts.txt',db,3)
+    #     # pydbCampus.append(entry)
+    randomSeed = 248273400029
+    print("Finalizing database...")
+    db.finalize(3, randomSeed, 3)
+
+    # print("Applying Lab 1 fix...")
+    # lab1URLfix(campusdb,"testReconcile.txt")
+
+    # print("Exporting WebAssign question...")
+    # exportWebassign('Lab 4 Campus Webassign.txt',db,4)
+
+    # print("Initializing weights table...")
+    # createWeightsTableBIBI(db)
+
+    # print("Adding rubric...")
+    # createRubricsTable(campusdb)
+    # addDefaultRubric(db, 1)
+    # addDefaultRubric(db, 2)
+    # db.cursor.execute("DELETE FROM rubrics WHERE labNumber = 3")
+    # db.conn.commit()
+    # addDefaultRubric(db, 3)
+    # addDefaultRubric(db, 4)
+
+    # print("Adding questions...")
+    # createQuestionsTable(campusdb)
+    # addDefaultQuestions(db, 1)
+    # addQuestions(db,2,[2708950,2709105,2709107,2709108,2708898,2708899,2708900,2708901,2708902])
+    # addQuestions(db,3,[2727517,2727519,2727522,2727525,2734844,2734880,2734881,2734882,2734883])
+
+    # Get the maximum score of one rubric
+    # maxScore = getMaxScore(db,3)
+    # db.cursor.execute('DROP TABLE grade')
+
+    db.cursor.execute("DELETE FROM responses WHERE labNumber = 3")
+    db.conn.commit()
+    print("Parsing responses files...")
+    for file in listdir_nohidden('Lab 3 Public Responses/'):
+        print("Parsing "+str(file)+'...')
+        parseResponsesFile(file,db,3)
+
+    print("Assigning weights...")
+    # assignWeightsBIBI(db, 1, weightBIBI)
+    # assignWeightsBIBI(db, 2, weightBIBI)
+    db.cursor.execute("DELETE FROM weightsBIBI WHERE labNumber = 3")
+    db.conn.commit()
+    assignWeightsBIBI(db, 3, weightBIBI)
+
+    print("Assigning final grades...")
+    db.cursor.execute("DELETE FROM grades WHERE labNumber = 3")
+    # createFinalGradesTable(db)
+    # assignGrades(db,1,calibrated = True)
+    # assignGrades(db,2,calibrated = True)
+    # db.cursor.execute("DELETE FROM grades WHERE labNumber = 3")
+    assignGrades(db,3,calibrated = True)
+    # parseEmails(db,'WebAssign Emails.csv')
+
+    print('======================DONE======================')
+# db = SqliteDB("2211 Fall 2013 Public.db")
+printGradesReport(db,'Lab 3 Public Grades.txt',3)
+# writeCommentsTabDelimited(db,'Lab 3 Public Comments.txt',3,writeEmails = True)

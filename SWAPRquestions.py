@@ -13,6 +13,10 @@ def addDefaultQuestions(db, labNumber):
 	for i in range(len(questionNumbers)):
 		addAssignmentQuestion(db, labNumber, i+1, questionNumbers[i], practice = i <= 1)
 
+def addQuestions(db, labNumber, questionNumbers):
+	for i in range(len(questionNumbers)):
+		addAssignmentQuestion(db, labNumber, i+1, questionNumbers[i], practice = i <= 1)
+
 def getQuestionIndexDict(db, labNumber):
     # Map the Webassign questions onto their corresponding indices in URLsToGrade
     db.cursor.execute("SELECT questionNumber, questionWebassignNumber FROM questions WHERE labNumber = ?", [labNumber])

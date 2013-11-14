@@ -3,7 +3,7 @@ from SWAPRstrings import *
 
 def exportWebassign(filename,db,labNumber):
 
-    db.cursor.execute("SELECT wID FROM submissions")
+    db.cursor.execute("SELECT wID FROM submissions WHERE labNumber = ?",[labNumber])
     wIDs = [str(item[0]) for item in db.cursor.fetchall()]
 
     with open(filename,'w') as output:
@@ -12,8 +12,8 @@ def exportWebassign(filename,db,labNumber):
             '%linkdb = (\n')
 
         for wID in wIDs:
-            if db.getURL(wID,labNumber) is not '':
-                output.write(getPerlLinksLine(wID,db.getURLsToGrade(wID,labNumber)[4:]))
+            # if db.getURL(wID,labNumber) not in ['',None]:
+            output.write(getPerlLinksLine(wID,db.getURLsToGrade(wID,labNumber)[4:]))
         output.write(');\n\n')
 
         output.write('sub get_link {\n'
