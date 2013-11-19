@@ -38,7 +38,7 @@ def writeCommentsWebassign(db,filename,labNumber):
                 '%comments_db = (\n')
             typeDict = getRubricTypeDict(db,labNumber)
 
-            db.cursor.execute("SELECT wID FROM student")
+            db.cursor.execute("SELECT wID FROM submissions")
             wIDs = [str(d[0]) for d in db.cursor.fetchall()]
 
 

@@ -28,10 +28,12 @@ def getRubricValuesDict(db,labNumber):
     return valuesDict
 
 def getMaxScore(db,labNumber):
-    scores = getRubricValuesDict(db,labNumber)
+    # assumes max score corresponds with response 0
+    db.cursor.execute("SELECT score FROM responseKeys, rubrics WHERE response = 0 AND responseKeys.labNumber = ? AND responseKeys.itemIndex = rubrics.itemIndex AND responseKeys.labNumber = rubrics.labNumber AND graded",[labNumber])
+    scores = [float(entry[0]) for entry in db.cursor.fetchall()]
     maxScore = 0
     for item in scores:
-        maxScore += max(item.values())
+        maxScore += item
 
     return maxScore
 

@@ -70,9 +70,9 @@ def setGrade(db,URL,labNumber, calibrated = True):
     # print(str(len(URLresponses))+' responders')
     for entry in URLresponses.values():
         weight = entry[0]
-        print('Weight='+str(weight))
+        # print('Weight='+str(weight))
         score = entry[2]
-        print('Score='+str(score))
+        # print('Score='+str(score))
         # Now, we construct an item-by-item weighted average
         if sum(weight) > 0 and len(score) == R:
             for i in range(R):
@@ -163,14 +163,16 @@ def assignGrades(db,labNumber, calibrated = True):
     db.conn.commit()
 
 def printGradesReport(db, filename, labNumber):
-    maxScore = getMaxScore(db, labNumber)
+    maxScore = getMaxScore(db,labNumber)
     # print(maxScore)
-    rubricValuesDict = getRubricValuesDict(db, labNumber)
-    db.cursor.execute("SELECT submissions.wID, finalGrade, weightSum, finalGradeVector FROM submissions, grades, weightsBIBI WHERE submissions.wID = grades.wID AND submissions.wID = weightsBIBI.wID AND submissions.labNumber = weightsBIBI.labNumber AND submissions.labNumber = grades.labNumber AND submissions.labNumber = ?",[labNumber])
+    # R=Number of items in rubric
+    db.cursor.execute("SELECT COUNT(*) FROM rubrics WHERE graded AND labNumber = ?",[labNumber])
+    R = int(db.cursor.fetchone()[0])
+    db.cursor.execute("SELECT G.wID, grade, weightSum FROM finalGrades G, weightsBIBI W WHERE G.wID = W.wID AND G.labNumber = W.labNumber AND G.labNumber = ? AND grade IS NOT NULL AND calibrated",[labNumber])
     with open(filename,'w') as output:
         output.write('Student\tPresentation Grade\tCalibration Grade\n')
         for student in db.cursor.fetchall():
             # print(student)
             peerGrade = float(student[1])*(100/maxScore)
-            calibrationGrade = 100*float(student[2])/(len(rubricValuesDict))
+            calibrationGrade = 100*float(student[2])/(6)
             output.write(str(student[0])+'\t'+str(peerGrade)+'\t'+str(calibrationGrade)+'\n')
