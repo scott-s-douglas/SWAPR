@@ -1,21 +1,22 @@
-from sqlite1 import *
+from SWAPRsqlite import *
 
 def createQuestionsTable(db):
 	db.cursor.execute("CREATE TABLE IF NOT EXISTS questions (labNumber int, questionNumber int, questionWebassignNumber int, practice boolean)")
 
-def addAssignmentQuestion(db, labNumber, questionNumber, questionWebassignNumber, practice = False):
-	db.cursor.execute("INSERT INTO questions VALUES (?, ?, ?, ?)",[labNumber, questionNumber, questionWebassignNumber, practice])
-	db.conn.commit()
+def addAssignmentQuestion(db, labNumber, questionIndex, wQuestion, practice = False):
+	db.cursor.execute("INSERT INTO questions VALUES (NULL, ?, ?, ?, ?)",[labNumber, questionIndex, wQuestion, practice])
 
 def addDefaultQuestions(db, labNumber):
 	# The Webassign question numbers won't always be consecutive!
 	questionNumbers = [2692884,2692888,2692889,2692890,2694521,2694522,2694523,2694524,2694525]
 	for i in range(len(questionNumbers)):
 		addAssignmentQuestion(db, labNumber, i+1, questionNumbers[i], practice = i <= 1)
+	db.conn.commit()
 
-def addQuestions(db, labNumber, questionNumbers):
-	for i in range(len(questionNumbers)):
-		addAssignmentQuestion(db, labNumber, i+1, questionNumbers[i], practice = i <= 1)
+def addQuestions(db, labNumber, wQuestions):
+	for i in range(len(wQuestions)):
+		addAssignmentQuestion(db, labNumber, i+1, wQuestions[i], practice = i <= 1)
+	db.conn.commit()
 
 def getQuestionIndexDict(db, labNumber):
     # Map the Webassign questions onto their corresponding indices in URLsToGrade

@@ -123,9 +123,20 @@ def parseResponsesFile(filename,db,labNumber):
                     for i in range(len(questionCols)):  # go over every question
                         qStart = questionCols[i][1]  # this question starts at this column
                         j = 0
+                        wQuestion = questionCols[i][0]
+                        db.cursor.execute("SELECT assignments.URL FROM assignments, questions WHERE assignments.questionIndex = questions.questionIndex AND questions.wQuestion = ? AND assignments.labNumber = questions.labNumber AND assignments.labNumber = ? AND assignments.wID = ?",[wQuestion,labNumber, wID])
+                            
+
+                        URL = db.cursor.fetchone()
+                        try:
+                            URL = str(URL[0])
+                        except:
+                            print('URL='+str(URL)+', wID='+wID)
+                            # 5/0
+                        # if wID == 'adeaton6@gatech':
+                        #     print(URL)
                         while j + qStart < len(data[line]):
                             # try:
-                            wQuestion = questionCols[i][0]
                             itemIndex = j+1
                             response = data[line][j+qStart]
                             # if labNumber == 2:
@@ -133,8 +144,6 @@ def parseResponsesFile(filename,db,labNumber):
                             if response == '':
                                 response = None
                             # We're going to go ahead and stick in the URL to which this response belongs
-                            db.cursor.execute("SELECT assignments.URL FROM assignments, questions WHERE assignments.questionIndex = questions.questionIndex AND questions.wQuestion = ? AND assignments.labNumber = questions.labNumber AND assignments.labNumber = ?",[wQuestion,labNumber])
-                            URL = str(db.cursor.fetchone()[0])
                             try:
                                 db.cursor.execute("INSERT INTO responses VALUES(NULL, ?, ?, ?, ?, ?, ?)", [labNumber, wID, wQuestion, URL, itemIndex, response])
                             except:
