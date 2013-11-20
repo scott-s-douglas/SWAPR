@@ -1,5 +1,6 @@
-from sqlite1 import *
+from SWAPRsqlite import *
 from SWAPRrubric import *
+from itertools import groupby
 
 def writeCommentsTabDelimited(db,filename,labNumber,writeEmails = False):
 	with open(filename,'w') as output:
@@ -13,48 +14,49 @@ def writeCommentsTabDelimited(db,filename,labNumber,writeEmails = False):
 		output.write(labelString)
 
 
-		# Write the comments report
-		typeDict = getRubricTypeDict(db,labNumber)
+		db.cursor.execute("SELECT wID, URL FROM submissions where labNumber = ?",[labNumber])
+		data = db.cursor.fetchall()
+		wIDURLpairs = [[str(d[0]),str(d[1])] for d in data]
+		totalLength = len(wIDURLpairs)
+		currentEntry = 0
 
-		db.cursor.execute("SELECT wID FROM submissions where labNumber = ?",[labNumber])
-		wIDs = [str(d[0]) for d in db.cursor.fetchall()]
+		# Get the list of item prompts
+		db.cursor.execute("SELECT itemPrompt FROM rubrics WHERE labNumber = ? AND itemType = 'freeResponse' AND itemIndex != 14 ORDER BY itemIndex",[labNumber])
+		prompts = [str(prompt[0]) for prompt in db.cursor.fetchall()]
 
-
-
-		for wID in wIDs:
+		for pair in wIDURLpairs:
+			print(str(currentEntry)+'/'+str(totalLength))
+			currentEntry += 1
+			wID = pair[0]
+			URL = pair[1]
 			# Get the student's peers' comments
 			peerComments = []
-			db.cursor.execute("SELECT response FROM responses, submissions WHERE submissions.URL = responses.URL AND submissions.wID = ? and submissions.labNumber = ?",[wID, labNumber])
-
-			responses = [stringToList(str(d[0])) for d in db.cursor.fetchall()]
-			if len(responses) > 0:
-				for response in responses:
-					comments = [str(item).replace('"',"'") for item in response if typeDict[response.index(item) +1] == 'freeResponse'] # Everything in the database is 1-indexed
-					peerComments.append(comments)
-
-
-			# Get the student's URL
-			db.cursor.execute("SELECT URL FROM submissions WHERE wID = ? AND labNumber = ?",[wID,labNumber])
-			d = db.cursor.fetchone()
-			URL = None
-			if d is not None:
-				URL = str(d[0])
-
+			db.cursor.execute("SELECT responses.itemIndex, response FROM responses, submissions, rubrics WHERE submissions.URL = responses.URL AND submissions.wID = ? and submissions.labNumber = ? AND responses.labNumber = submissions.labNumber AND rubrics.labNumber = submissions.labNumber AND rubrics.itemIndex = responses.itemIndex AND rubrics.itemType = 'freeResponse' AND responses.itemIndex != 14 ORDER BY responses.itemIndex",[wID, labNumber])
+			data = [[int(entry[0]),str(entry[1])] for entry in db.cursor.fetchall() if entry[1] != None]
+			# print(data)
+			# 5/0
+			# group by itemIndex
+			peerComments = []
+			# print(peerComments)
+			for itemIndex, itemResponses in groupby(data,key = lambda x: x[0]):
+				# print(list(itemResponses))
+				iString = ''
+				for response in list(itemResponses):
+					iString += str(response[1])+'; '
+				peerComments.append(iString)
+			# print(peerComments)
+			# print(peerComments)
 			# Get the student's weights
 			db.cursor.execute("SELECT weight1, weight2, weight3, weight4, weight5, weight6 FROM weightsBIBI WHERE wID = ? and labNumber = ?",[wID, labNumber])
 			weights = [[float(d[i]) for i in range(6)] for d in db.cursor.fetchall()]
-			
-			# Get the rubric prompts
-			db.cursor.execute("SELECT itemPrompt FROM rubrics WHERE itemType = 'freeResponse' and labNumber = ?",[labNumber])
-			prompts = [str(item[0]) for item in db.cursor.fetchall()]
 
 			# Get the student's grade vector
-			db.cursor.execute("SELECT finalGradeVector FROM grades WHERE wID = ? and labNumber = ?",[wID, labNumber])
-			gradeVector = [stringToList(str(item[0])) for item in db.cursor.fetchall()]
+			db.cursor.execute("SELECT grade FROM itemGrades, rubrics WHERE wID = ? and itemGrades.labNumber = ?  AND rubrics.labNumber = itemGrades.labNumber AND itemGrades.itemIndex = rubrics.itemIndex AND graded ORDER BY itemGrades.itemIndex",[wID, labNumber])
+			gradeVector = [item for item in db.cursor.fetchall()]
 			if gradeVector == []:
 				gradeVector = [0,0,0,0,0,0]
 			else:
-				gradeVector = [float(entry) for entry in gradeVector[0]]
+				gradeVector = [float(entry[0]) for entry in gradeVector]
 
 			# Get email, if appropriate
 			if writeEmails:
@@ -78,9 +80,10 @@ def writeCommentsTabDelimited(db,filename,labNumber,writeEmails = False):
 			for i in range(6):
 				iComments = ''
 				if len(peerComments) > 0:
-					for comment in peerComments:
-						iComments += comment[i]+'; '
-					dataString += '\t'+prompts[i]+'\t'+str(gradeVector[i])+'\t'+iComments
+					# for comment in peerComments:
+					# print(peerComments)
+					# 	iComments += comment[i]+'; '
+					dataString += '\t'+prompts[i]+'\t'+str(gradeVector[i])+'\t'+peerComments[i]
 				else:
 					dataString += '\t'+prompts[i]+'\t'+str(gradeVector[i])+'\t'+''
 				try:

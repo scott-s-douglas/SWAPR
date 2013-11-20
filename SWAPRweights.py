@@ -12,7 +12,7 @@ def weightBIBI(pairs):
 	for pair in pairs:
 		studentGrade = pair[0]
 		expertGrade = pair[1]
-		if len(expertGrade) == len(studentGrade) >= 1:	# Make sure they're not blank, and are the same length
+		if len(expertGrade) == len(studentGrade) == 6:	# Make sure they're not blank, and are the same length
 			for i in range(len(studentGrade)):
 				# If the student and expert response for a particular item are within 1 of each other, the student gets 1/N points in that weight coordinate
 				if studentGrade[i] != None:

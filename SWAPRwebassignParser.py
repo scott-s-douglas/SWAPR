@@ -131,7 +131,7 @@ def parseResponsesFile(filename,db,labNumber):
                         try:
                             URL = str(URL[0])
                         except:
-                            print('URL='+str(URL)+', wID='+wID)
+                            print('Response has invalid URL: URL='+str(URL)+', wID='+wID)
                             # 5/0
                         # if wID == 'adeaton6@gatech':
                         #     print(URL)

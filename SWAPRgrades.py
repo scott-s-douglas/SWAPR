@@ -1,5 +1,5 @@
 from __future__ import division, print_function
-from sqlite1 import *
+from SWAPRsqlite import *
 from SWAPRrubric import *
 
 def createFinalGradesTable(db):
