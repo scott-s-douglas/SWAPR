@@ -118,6 +118,9 @@ def parseResponsesFile(filename,db,labNumber):
                 if data[line][0] != '': # Make sure we don't have one of the score lines
                     # Now we have a student in the grade file; find the right student in self
                     wID = data[line][wIDcol]
+                    fullName = data[line][0]
+
+                    db.cursor.execute("INSERT INTO students (fullName, wID) VALUES (?,?)",[fullName,wID])
 
 
                     for i in range(len(questionCols)):  # go over every question

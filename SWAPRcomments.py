@@ -65,15 +65,15 @@ def writeCommentsTabDelimited(db,filename,labNumber,writeEmails = False):
 					db.cursor.execute("SELECT email FROM students WHERE wID = ?",[wID])
 					email = str(db.cursor.fetchone()[0])
 				# print(email)
-
-			dataString = wID.split('@')[0]
+			dataString = ''
 			if writeEmails:
-				dataString += '\t'
 				if hasEmail:
 					try:
 						dataString += email
+						dataString += '\t'
 					except:
-						pass
+						dataString += '\t'
+			dataString += wID.split('@')[0]
 			dataString += '\t'
 			if URL is not None:
 				dataString += URL
@@ -114,7 +114,7 @@ def parseEmails(db,emailsFile):
 			# print(email.split(',')[2].replace('\n',''))
 			email = email.split('\t')[1].replace('\n','')
 			if len(email) >= 5:
-				db.cursor.execute("INSERT INTO students (wID, email) VALUES (?,?)",[email.split('@')[0]+'@gatech', email ])
+				db.cursor.execute("INSERT INTO students (wID, email) VALUES (NULL,?,?)",[email.split('@')[0]+'@gatech', email ])
 	db.conn.commit()
 
 # publicdb = SqliteDB("public.db")
