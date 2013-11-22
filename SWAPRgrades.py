@@ -164,7 +164,7 @@ def assignGrades(db,labNumber, calibrated = True):
 
 def printGradesReport(db, filename, labNumber):
     maxScore = getMaxScore(db,labNumber)
-    # print(maxScore)
+    print("maxScore="+str(maxScore))
     # R=Number of items in rubric
     db.cursor.execute("SELECT COUNT(*) FROM rubrics WHERE graded AND labNumber = ?",[labNumber])
     R = int(db.cursor.fetchone()[0])

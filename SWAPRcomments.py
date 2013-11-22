@@ -51,7 +51,7 @@ def writeCommentsTabDelimited(db,filename,labNumber,writeEmails = False):
 			weights = [[float(d[i]) for i in range(6)] for d in db.cursor.fetchall()]
 
 			# Get the student's grade vector
-			db.cursor.execute("SELECT grade FROM itemGrades, rubrics WHERE wID = ? and itemGrades.labNumber = ?  AND rubrics.labNumber = itemGrades.labNumber AND itemGrades.itemIndex = rubrics.itemIndex AND graded ORDER BY itemGrades.itemIndex",[wID, labNumber])
+			db.cursor.execute("SELECT grade FROM itemGrades WHERE wID = ? and itemGrades.labNumber = ? AND calibrated ORDER BY itemIndex",[wID, labNumber])
 			gradeVector = [item for item in db.cursor.fetchall()]
 			if gradeVector == []:
 				gradeVector = [0,0,0,0,0,0]
