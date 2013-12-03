@@ -190,7 +190,11 @@ class SqliteDB:
 			while '' in data:
 				data.remove('')
 
+<<<<<<< HEAD
 		#self.cursor.execute(query)                
+=======
+		#self.cursor.execute(query)		
+>>>>>>> 1783ebc5834387f2bf0426d7b0dc1f254b4f493e
 		random.shuffle(data)
 		selectFrom = data + data[:N + len(expertURL) + 1]
 		if len(pseudoURL.keys()) > 0:
@@ -225,6 +229,7 @@ class SqliteDB:
 				random.shuffle(URLSToGrade)
 				# params = ("Lab" + str(labNumber) + "URLSToGrade", "Lab" + str(labNumber) + "URL")
 				# self.cursor.execute("UPDATE submissions SET URLsToGrade=? WHERE URL=? and labNumber=?", [listToString(expertURL + URLSToGrade), d, labNumber])
+
 				for i in range(0, len(URLSToGrade)):
 					#i+1 because we want item index to start at 1
 					self.cursor.execute("INSERT INTO assignments VALUES(NULL, ?, ?, ?, ?)", [labNumber, URLTowIDDict[d], i+1, URLSToGrade[i]])
