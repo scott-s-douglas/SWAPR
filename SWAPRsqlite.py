@@ -190,11 +190,7 @@ class SqliteDB:
 			while '' in data:
 				data.remove('')
 
-<<<<<<< HEAD
 		#self.cursor.execute(query)                
-=======
-		#self.cursor.execute(query)		
->>>>>>> 1783ebc5834387f2bf0426d7b0dc1f254b4f493e
 		random.shuffle(data)
 		selectFrom = data + data[:N + len(expertURL) + 1]
 		if len(pseudoURL.keys()) > 0:
