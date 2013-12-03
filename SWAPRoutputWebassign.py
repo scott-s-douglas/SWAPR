@@ -1,9 +1,9 @@
-from sqlite1 import *
+from SWAPRsqlite import *
 from SWAPRstrings import *
 
 def exportWebassign(filename,db,labNumber):
 
-    db.cursor.execute("SELECT wID FROM submissions WHERE labNumber = ?",[labNumber])
+    db.cursor.execute("SELECT DISTINCT wID FROM assignments WHERE labNumber = ?",[labNumber])
     wIDs = [str(item[0]) for item in db.cursor.fetchall()]
 
     with open(filename,'w') as output:
@@ -13,12 +13,15 @@ def exportWebassign(filename,db,labNumber):
 
         for wID in wIDs:
             # if db.getURL(wID,labNumber) not in ['',None]:
-            output.write(getPerlLinksLine(wID,db.getURLsToGrade(wID,labNumber)[4:]))
+            output.write(getPerlLinksLine(wID,db.getURLsToGrade(wID,labNumber)))
         output.write(');\n\n')
 
         output.write('sub get_link {\n'
             'my ($stu, $linknum) = @_;\n'
+            'if ($linkdb{$stu}[$linknum]) {'
             'return $linkdb{$stu}[$linknum];\n'
+            '} else {\n'
+            'return $linkdb{"default"}[$linknum]}\n'
             "}\n''\n"
             '</eqn>\n'
             '<eqn>\n'

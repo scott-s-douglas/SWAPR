@@ -21,8 +21,8 @@ def stringToList(string):
 	list = [str(line) for line in string.split('\t')]
 	return list
 def listdir_nohidden(path):
-    # Return only the non-hidden files in a directory, to avoid that annoying .DS_Store file
-    return glob.glob(os.path.join(path, '*'))
+	# Return only the non-hidden files in a directory, to avoid that annoying .DS_Store file
+	return glob.glob(os.path.join(path, '*'))
 
 #class for connecting, inserting, and retrieving information from a sqlite3 database
 class SqliteDB:
@@ -46,7 +46,7 @@ class SqliteDB:
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS assignments (row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, questionIndex int, URL text)")
 		# self.cursor.execute("CREATE TABLE IF NOT EXISTS uniqueStudentURL (labNumber int, wID text, URL text, UNIQUE(URL) ON CONFLICT ABORT)")
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS experts (row INTEGER PRIMARY KEY NOT NULL, labNumber int, URL text, itemIndex int, response text, hidden boolean, practice boolean)")
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS responses (row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, wQuestion int, URL text, itemIndex int, response text)")	
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS responses (row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, wQuestion int, URL text, itemIndex int, response text)")        
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS questions (row INTEGER PRIMARY KEY NOT NULL, labNumber int, questionIndex int, wQuestion int, practice boolean)")
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS rubrics (row INTEGER PRIMARY KEY NOT NULL, labNumber int, itemIndex int, itemType text, itemPrompt text, graded boolean)")
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS responseKeys (row INTEGER PRIMARY KEY NOT NULL, labNumber int, itemIndex int, response int, score number)")
@@ -70,8 +70,8 @@ class SqliteDB:
 	#adds a person into the database, works for both new users and existing ones 
 	def addSubmission(self, wID, URL, labNumber, metadata = None):
 		if self.databaseName != None and self.conn != None and self.cursor !=None:
-			self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?,?)", [None,labNumber, wID, URL ,metadata])	
-			# self.conn.commit()	
+			self.cursor.execute("INSERT INTO submissions VALUES(?,?,?,?,?)", [None,labNumber, wID, URL ,metadata])        
+			# self.conn.commit()        
 	def addEmail(self, wID, email):
 		try:
 			self.cursor.execute("INSERT INTO students VALUES (?,?,?)", [wID, email])
@@ -90,10 +90,10 @@ class SqliteDB:
 
 	def addExpertURL(self, labNumber, URL, itemIndex, response, hidden, practice):
 		
-		self.cursor.execute("SELECT * FROM experts WHERE URL = ?", [URL])
+		# self.cursor.execute("SELECT * FROM experts WHERE URL = ?", [URL])
 		#adds in a user if not in database already
 		self.cursor.execute("INSERT INTO experts VALUES (NULL, ?, ?, ?, ?, ?, ?)", [labNumber, URL, itemIndex, response, hidden, practice])
-		self.conn.commit()	
+		self.conn.commit()        
 
 		##find a way to make seperate expert tables for each lab, and then join them together to prevent the staggaring of grades in the excel sheet
 		#self.cursor.execute("SELECT * FROM expert WHERE Lab1Grade")
@@ -107,30 +107,48 @@ class SqliteDB:
 			URLsAndGrades[str(d[0])] = stringToList(str(d[1]))
 		return URLsAndGrades
 
+	def scottFinalize(self,labNumber, seed, N, MOOC = False):
+		self.cursor.execute("SELECT ")
+
 	def finalize(self, labNumber, seed, N, MOOC=False):
 		##randomize the youtube URLs
 		#for each wID
 			#put that into the databse under the student ID
-		self.cursor.execute("SELECT URL FROM experts WHERE labNumber=? and hidden=0", [labNumber])
-		expertURL = [str(d[0]) for d in self.cursor.fetchall()]
+		self.cursor.execute("SELECT URL, hidden FROM experts WHERE labNumber=?", [labNumber])
+		expertURL = []
+		hiddenURL = []
+		for d in self.cursor.fetchall():
+			if d[1] == 1:
+				hiddenURL.append(str(d[0]))
+			elif d[1] == 0:
+				expertURL.append(str(d[0]))
+		
+		#deprecated code, due to its slowness
+		#self.cursor.execute("SELECT URL FROM experts WHERE labNumber=? and hidden=0", [labNumber])
+		#expertURL = [str(d[0]) for d in self.cursor.fetchall()]
 		
 
-		# find all the hidden expert videos	
-		self.cursor.execute("SELECT URL FROM experts WHERE labNumber=? and hidden=1", [labNumber])
-		hiddenURL = [str(d[0]) for d in self.cursor.fetchall()]
-		
+		# find all the hidden expert videos
+		#self.cursor.execute("SELECT URL FROM experts WHERE labNumber=? and hidden=1", [labNumber])
+		#hiddenURL = [str(d[0]) for d in self.cursor.fetchall()]
+	   
 		#get all the studnet URLs
-		self.cursor.execute("SELECT URL from submissions WHERE labNumber=?", [labNumber])
-		data = [str(d[0]) for d in self.cursor.fetchall()]
+		self.cursor.execute("SELECT wID, URL from submissions WHERE labNumber=?", [labNumber])
+		data = []
+		URLTowIDDict = {}
+		pseudoURL = {}
+		for d in self.cursor.fetchall():
+			data.append(str(d[1]))
+			URLTowIDDict[str(d[1])] = str(d[0])
+		print "original data size", len(data)
 		
 		#assign the students whos videos are designated expert graded URLs to grade, and remove them from the URL pool retrieved above
 		if len(expertURL) + N + 1 <= len(data):
-			pseudoURL = {}
 			for d in expertURL:
 				#if the expertURL is not in the data list, then it is a video that is not submitted by a student this sem
 				#semester, in which case, we skip it
 				if d in data:
-					self.cursor.execute("SELECT wID FROM submissions WHERE URL=?", [d])
+					#self.cursor.execute("SELECT wID FROM submissions WHERE URL=?", [d])
 					indice = (data.index(d) + 1) % len(data)
 					while data[indice] in expertURL or data[indice] in hiddenURL:
 						indice = (indice + 1) % len(data)
@@ -172,9 +190,7 @@ class SqliteDB:
 			while '' in data:
 				data.remove('')
 
-		
-		#self.cursor.execute(query)
-
+		#self.cursor.execute(query)                
 		random.shuffle(data)
 		selectFrom = data + data[:N + len(expertURL) + 1]
 		if len(pseudoURL.keys()) > 0:
@@ -185,7 +201,9 @@ class SqliteDB:
 				for i in hiddenURL: 
 					URLSToGrade.append(i)
 				random.shuffle(URLSToGrade)
-				self.cursor.execute("UPDATE submissions SET URLsToGrade=? WHERE URL=?", [listToString(expertURL + URLSToGrade), key])
+				for i in range(0, len(URLSToGrade)):
+					#i+1 because we want item index to start at 1
+					self.cursor.execute("INSERT INTO assignments VALUES(NULL, ?, ?, ?, ?)", [labNumber, key, i+1, URLSToGrade[i]])
 				self.conn.commit()
 		if len(wIDPseudoURL.keys()) > 0:
 			for key in wIDPseudoURL.keys():
@@ -194,9 +212,10 @@ class SqliteDB:
 				for i in hiddenURL: 
 					URLSToGrade.append(i)
 				random.shuffle(URLSToGrade)
-				self.cursor.execute("UPDATE submissions SET URLsToGrade=? WHERE wID=?", [listToString(expertURL + URLSToGrade), key])
+				for i in range(0, len(URLSToGrade)):
+					#i+1 because we want item index to start at 1
+					self.cursor.execute("INSERT INTO assignments VALUES(NULL, ?, ?, ?, ?)", [labNumber, key, i+1, URLSToGrade[i]])
 				self.conn.commit()
-			
 		if len(data) > N:
 			for d in data:
 				startIndex = selectFrom.index(d)
@@ -205,15 +224,55 @@ class SqliteDB:
 					URLSToGrade.append(i)
 				random.shuffle(URLSToGrade)
 				# params = ("Lab" + str(labNumber) + "URLSToGrade", "Lab" + str(labNumber) + "URL")
-				self.cursor.execute("UPDATE submissions SET URLsToGrade=? WHERE URL=? and labNumber=?", [listToString(expertURL + URLSToGrade), d, labNumber])
+				# self.cursor.execute("UPDATE submissions SET URLsToGrade=? WHERE URL=? and labNumber=?", [listToString(expertURL + URLSToGrade), d, labNumber])
+				for i in range(0, len(URLSToGrade)):
+					#i+1 because we want item index to start at 1
+					self.cursor.execute("INSERT INTO assignments VALUES(NULL, ?, ?, ?, ?)", [labNumber, URLTowIDDict[d], i+1, URLSToGrade[i]])
 		self.conn.commit()
+		
+##############################################################################################################
+		#will comment out once these conditions are met, due to some issues with encrypting URLs due to FERPA.
+##############################################################################################################
+		#checks to see if each URL was assigned >4 times
+		self.cursor.execute("SELECT URL from assignments")
+		
+		#checks is the URLs in the Assignment table
+		checks = [str(d[0]) for d in self.cursor.fetchall()]
+
+
+		print "-sanity checks, checks to see if URL was assigned more than N+1 or less than N"
+		for URL in set(checks):
+			if checks.count(URL)>N+1:                        
+				print checks.count(URL), URL, data.count(URL), "->num of times assigned, URL, number of times submitted, respectively"
+			elif checks.count(URL) < N:
+				print checks.count(URL), URL, data.count(URL), "->num of times assigned, URL, number of times submitted, respectively"
+		print "-end of checks to see if URL was assigned the correct number of times"
+		#is the # of times that hiddenURL is assigned the same as submissions?
+		for item in set(data):
+			if item not in checks:
+				print item + " not in checks"
+		print "length of set(checks) vs length of checks:", len(set(checks)), len(checks)
+		print "length of set(data) vs length of data:", len(set(data)), len(data)
+		dictThings = [URLTowIDDict[d] for d in URLTowIDDict.keys()]
+		for i in dictThings:
+			if dictThings.count(i)>1:
+				print i, "is in URLtowIDDict more than once"
+		#print hiddenURL 
+		#print checks.count(hiddenURL[0])
+		self.cursor.execute("SELECT wID FROM submissions WHERE labNumber=3")
+		print "number of unique wIDs in submissions:", len(set(self.cursor.fetchall()))
+		self.cursor.execute("SELECT wID FROM assignments")
+		print "number of unique wIDs in assignments:", len(set(self.cursor.fetchall()))
+##########################################################################################################
+	
+
 	def getURLsToGrade(self, wID, labNumber):
-		self.cursor.execute("Select URLsToGrade FROM submissions WHERE wID=? and labNumber=?", [wID, labNumber])
-		dbExtract = self.cursor.fetchone()
-		if dbExtract == None:
+		self.cursor.execute("Select URL FROM assignments WHERE wID=? and labNumber=? ORDER BY questionIndex", [wID, labNumber])
+		dbExtract = [entry for entry in self.cursor.fetchall()]
+		if dbExtract == []:
 			return False
 		else:
-			return [i for i in stringToList(dbExtract[0])]
+			return [str(i[0]) for i in dbExtract]
 	
 	def addResponse(self, labNumber, wID, wQuestion, itemIndex, response):
 		self.cursor.execute("INSERT INTO responses VALUES(NULL, ?, ?, ?, ?, ?)", [labNumber, wID, wQuestion, itemIndex, response])
@@ -239,7 +298,7 @@ class SqliteDB:
 		for key in expertURLsAndGrades.keys():
 			if key in URLsGraded:
 				print expertURLsAndGrades[key]
-				print userSubmittedGrades[key]	
+				print userSubmittedGrades[key]        
 				
 	def getGrades(self, wID, labNumber):
 		URL = self.getURL(wID, labNumber)
@@ -261,41 +320,3 @@ class SqliteDB:
 				return False
 		return True
 		
-
-
-if False:
-	os.remove("test.db")
-	makeDatabase("test.db")
-	sqldb = SqliteDB("test.db")
-	sqldb.createTables()
-	sqldb.addEntry("1", "1lkjsdf", 1)
-	sqldb.addEntry("2", "1lkjsdf", 1)
-	sqldb.addEntry("3", "1lkjsdf", 1)
-	sqldb.addEntry("4", "4lkjsdf", 1)
-	# sqldb.addEntry("4a",None , 2)
-	sqldb.addEntry("5", "5lkjsdf", 1)
-	sqldb.addEntry("6", "6lkjsdf", 1)
-	sqldb.addEntry("7", "7lkjsdf", 1)
-	sqldb.getURL("1", 1)
-	sqldb.getURL("2", 1)
-	sqldb.addExpertURL(1, "5lkjsdf",[1, 2, 3, 4, 5, 6, 7], 0)
-	sqldb.addExpertURL(1, "2lkjsdf", [1, 7, 3, 1, 6, 3], 0)
-	# sqldb.addEntry("8", None, 2)
-	sqldb.addEntry("8", '', 1)
-	sqldb.addEntry(9, "hidden", 1)
-	sqldb.addExpertURL(1, "hidden", [1, 2, 3], 1)
-	print "testing below"
-	sqldb.finalize(1, 1, 3)
-	print sqldb.getURLsToGrade("1", 1)
-	sqldb.addGrade("1",1,  "5lkjsdf", [1, 2, 3, 4])
-	sqldb.addGrade("12",1,  "asdf", 1)
-	sqldb.addGrade("1", 1, "2kjla", 1)
-	sqldb.addGrade("2", "1", "5lkjsdf", [4, 3, 2, 1])
-	sqldb.wIDGradesSubmitted("1", 1)
-	sqldb.getGrades("5", 1)
-	sqldb.getExpertURLs(1)
-	sqldb.compareToExpert("1",1)
-	sqldb.check(1)
-# sqldb.addExpert("expertVideo", 1, 1)		
-# sqldb.addExpert("test2", 2, 2)
-

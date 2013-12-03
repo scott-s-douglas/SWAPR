@@ -80,8 +80,12 @@ def parseExpertsFile(filename,db,labNumber,gradeCol = 3):
                     grade = data[line][gradeCol:-2]
                     for i in range(len(grade)):
                         itemIndex = i+1
-                        db.addExpertURL(labNumber, URL, itemIndex, grade[i], hidden = data[line][-2], practice = data[line][-1])
+                        response = grade[i]
+                        hidden = data[line][-2]
+                        practice = data[line][-1]
+                        db.cursor.execute("INSERT INTO experts VALUES (NULL, ?, ?, ?, ?, ?, ?)", [labNumber, URL, itemIndex, response, hidden, practice])
         line += 1
+    db.conn.commit()
     return reportEntries
 
 def parseResponsesFile(filename,db,labNumber):
