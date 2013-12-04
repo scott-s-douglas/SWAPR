@@ -13,37 +13,29 @@ def writeCommentsTabDelimited(db,filename,labNumber,writeEmails = False):
 		labelString += "\n"
 		output.write(labelString)
 
-
-		db.cursor.execute("SELECT wID, URL FROM submissions where labNumber = ?",[labNumber])
-		data = db.cursor.fetchall()
-		wIDURLpairs = [[str(d[0]),str(d[1])] for d in data]
-		totalLength = len(wIDURLpairs)
-		currentEntry = 0
-
 		# Get the list of item prompts
 		db.cursor.execute("SELECT itemPrompt FROM rubrics WHERE labNumber = ? AND itemType = 'freeResponse' AND itemIndex != 14 ORDER BY itemIndex",[labNumber])
 		prompts = [str(prompt[0]) for prompt in db.cursor.fetchall()]
 
-		for pair in wIDURLpairs:
-			print(str(currentEntry)+'/'+str(totalLength))
-			currentEntry += 1
-			wID = pair[0]
-			URL = pair[1]
+		db.cursor.execute("SELECT submissions.wID, submissions.URL, responses.itemIndex, response FROM responses, submissions, rubrics WHERE submissions.URL = responses.URL and submissions.labNumber = ? AND responses.labNumber = submissions.labNumber AND rubrics.labNumber = submissions.labNumber AND rubrics.itemIndex = responses.itemIndex AND rubrics.itemType = 'freeResponse' AND responses.itemIndex != 14 ORDER BY submissions.wID, responses.itemIndex",[labNumber])
+		data = [[str(entry[0]),str(entry[1]),int(entry[2]),str(entry[3])] for entry in db.cursor.fetchall() if entry[3] != None]
+		for wID, responses in groupby(data,key = lambda x: x[0]):
+			responses = list(responses)
+			# print(responses)
+			URL = responses[0][1]
 			# Get the student's peers' comments
 			peerComments = []
-			db.cursor.execute("SELECT responses.itemIndex, response FROM responses, submissions, rubrics WHERE submissions.URL = responses.URL AND submissions.wID = ? and submissions.labNumber = ? AND responses.labNumber = submissions.labNumber AND rubrics.labNumber = submissions.labNumber AND rubrics.itemIndex = responses.itemIndex AND rubrics.itemType = 'freeResponse' AND responses.itemIndex != 14 ORDER BY responses.itemIndex",[wID, labNumber])
-			data = [[int(entry[0]),str(entry[1])] for entry in db.cursor.fetchall() if entry[1] != None]
-			# print(data)
-			# 5/0
-			# group by itemIndex
-			peerComments = []
 			# print(peerComments)
-			for itemIndex, itemResponses in groupby(data,key = lambda x: x[0]):
+			for itemIndex, itemResponses in groupby(responses,key = lambda x: x[2]):
 				# print(list(itemResponses))
 				iString = ''
-				for response in list(itemResponses):
-					iString += str(response[1])+'; '
+				itemResponses = list(itemResponses)
+				for i in range(len(itemResponses)):
+					iString += str(itemResponses[i][3])
+					if i < len(itemResponses) -1:
+						iString += '; '
 				peerComments.append(iString)
+			# print(peerComments)
 			# print(peerComments)
 			# print(peerComments)
 			# Get the student's weights
@@ -117,6 +109,8 @@ def parseEmails(db,emailsFile):
 				db.cursor.execute("INSERT INTO students (wID, email) VALUES (NULL,?,?)",[email.split('@')[0]+'@gatech', email ])
 	db.conn.commit()
 
+db = SqliteDB("PHYS 2211 Fall 2013 Public.db")
+writeCommentsTabDelimited(db,'Lab 4 Test Comments.txt',4, writeEmails = False)
 # publicdb = SqliteDB("public.db")
 # createEmailsTable(publicdb)
 # parseEmails(publicdb,'/Users/Scott/Downloads/Coursera Mail Merge/Emails.csv')

@@ -39,6 +39,9 @@ def assignURLs(db,labNumber,Npeer):
 
 		random.shuffle(URLsToGrade)
 
+		# add the practice and then the shown URLs, in order, at the beginning
+		URLsToGrade = practiceList + shownList + URLsToGrade
+
 		for j in range(len(URLsToGrade)):
 			db.cursor.execute("INSERT INTO assignments VALUES (NULL, ?, ?, ?, ?)",[labNumber,wID,j+1,URLsToGrade[j]])
 	# repeat the last set of URLsToGrade as the default set for students who didn't submit a video.
