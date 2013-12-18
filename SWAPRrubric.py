@@ -4,16 +4,20 @@ def createRubricsTable(db):
     db.cursor.execute("CREATE TABLE IF NOT EXISTS rubrics (labNumber int, itemIndex int, itemType text, itemValues text, graded boolean, itemPrompt text)")
 
 def addRubricItem(db, labNumber, itemIndex, itemType, itemValues, graded, itemPrompt = None):
-    db.cursor.execute("INSERT INTO rubrics VALUES (?, ?, ?, ?, ?, ?)", [labNumber, itemIndex, itemType, listToString(itemValues), graded, itemPrompt])
+    db.cursor.execute("INSERT INTO rubrics VALUES (NULL, ?, ?, ?, ?, ?)", [labNumber, itemIndex, itemType, itemPrompt, graded])
+    if itemValues == []:
+        db.cursor.execute("INSERT INTO responseKeys VALUES (NULL,?,?,?,?)",[labNumber,itemIndex,0,None])
+    for i in range(len(itemValues)):
+        db.cursor.execute("INSERT INTO responseKeys VALUES (NULL, ?,?,?,?)",[labNumber, itemIndex,i,float(itemValues[-(i+1)])])
     db.conn.commit()
 
 def getRubricGradedDict(db,labNumber):
     db.cursor.execute("SELECT itemIndex, graded FROM rubrics WHERE labNumber = ?", [labNumber])
-    return { d[0]: d[1] for d in db.cursor.fetchall() }
+    # return { d[0]: d[1] for d in db.cursor.fetchall() }
 
 def getRubricTypeDict(db,labNumber):
     db.cursor.execute("SELECT itemIndex, itemType FROM rubrics WHERE labNumber = ?", [labNumber])
-    return { d[0]: d[1] for d in db.cursor.fetchall() }
+    # return { d[0]: d[1] for d in db.cursor.fetchall() }
 
 def getRubricValuesDict(db,labNumber):
     # Returns a list of dictionaries; each item index yields a dictionary of item responses (on Webassign, 0,1,2,etc.) vs. point values (12,10,6,4,etc.)
@@ -55,6 +59,24 @@ def addDefaultRubric(db, labNumber):
         addRubricItem(db, labNumber, 12, 'freeResponse', [], False, 'Were there any aspects of the physics in this video which the presenter did not make clear? Was the presenter mistaken about some of the physics he or she presented?')
         addRubricItem(db, labNumber, 13, 'comparative5', [-2,-1,0,1,2], False, 'How does this video compare to your own video?')
         addRubricItem(db, labNumber, 14, 'freeResponse', [], False, 'What are a couple of things this presenter could do to improve his/her report, or what are a couple of things you have learned from this video to improve your own report?')
+    if labNumber == 6:
+        addRubricItem(db, labNumber, 1, 'likert5', [0,2,6,10,12], True, 'The video presentation is clear and easy to follow.')
+        addRubricItem(db, labNumber, 2, 'freeResponse', [], False, 'What are a couple of things this presenter could do to improve the video presentation?')
+
+        addRubricItem(db, labNumber, 3, 'yhn', [0,6,12], True, 'Does the presenter identify the lecture they attended and introduce the topic of that lecture?')
+        addRubricItem(db, labNumber, 4, 'freeResponse', [], False, 'What are a couple of things this presenter could do to improve the introduction and the problem statement? ')
+
+        addRubricItem(db, labNumber, 5, 'yhn', [0,1,2], True, 'Does the presenter summarize the main points of the lecture and state why this topic was of interest to him or her?')
+        addRubricItem(db, labNumber, 6, 'freeResponse', [], False, 'What are a couple of things this presenter could do to improve the summary of the main points of the lecture? ')
+
+        addRubricItem(db, labNumber, 7, 'likert5', [0,2,6,10,12], True, 'TThe presenter taught the viewer something interesting they learned as a result of attending this lecture.')
+        addRubricItem(db, labNumber, 8, 'freeResponse', [], False, 'What are a couple of things this presenter could do to improve the summary of the main points of the lecture? ')
+
+        addRubricItem(db, labNumber, 9, 'likert5', [0,2,6,10,12], True, 'The presenter followed up on the lecture with ideas or concepts not discussed by the public speaker.')
+        addRubricItem(db, labNumber, 10, 'freeResponse', [], False, 'Were there any aspects of the physics in this video which the presenter did not make clear? Was the presenter mistaken about some of the physics he or she presented? ')
+
+        addRubricItem(db, labNumber, 11, 'comparative5', [-2,-1,0,1,2], False, 'How does this video compare to your own video?')
+        addRubricItem(db, labNumber, 12, 'freeResponse', [], False, 'What are a couple of things this presenter could do to improve his/her report, or what are a couple of things you have learned from this video to improve your own report?')
     else:
         addRubricItem(db, labNumber, 1, 'likert5', [0,2,6,10,12], True, 'The video presentation is clean and easy to follow.')
         addRubricItem(db, labNumber, 2, 'freeResponse', [], False, 'What are a couple of things this presenter could do to improve the video presentation?')

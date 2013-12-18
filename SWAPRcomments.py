@@ -2,19 +2,23 @@ from SWAPRsqlite import *
 from SWAPRrubric import *
 from itertools import groupby
 
-def writeCommentsTabDelimited(db,filename,labNumber,writeEmails = False):
+def writeCommentsTabDelimited(db,filename,labNumber,writeEmails = False,reportWeights = True):
 	with open(filename,'w') as output:
 		labelString = "Username"
 		if writeEmails:
 			labelString += "\tEmail"
 		labelString += "\tURL"
-		for i in range(6):
+		# for i in range(5):
+		# TODO: don't hard-code the number of responses
+		for i in range(5):
 			labelString+="\tItem "+str(i+1)+"\tItem "+str(i+1)+" Grade\tItem "+str(i+1)+" Comments\tItem "+str(i+1)+" Calibration"
 		labelString += "\n"
 		output.write(labelString)
 
 		# Get the list of item prompts
-		db.cursor.execute("SELECT itemPrompt FROM rubrics WHERE labNumber = ? AND itemType = 'freeResponse' AND itemIndex != 14 ORDER BY itemIndex",[labNumber])
+		# db.cursor.execute("SELECT itemPrompt FROM rubrics WHERE labNumber = ? AND itemType = 'freeResponse' AND itemIndex != 14 ORDER BY itemIndex",[labNumber])
+		# Get the list of item prompts (5-item extra credit rubric)
+		db.cursor.execute("SELECT itemPrompt FROM rubrics WHERE labNumber = ? AND itemType = 'freeResponse' AND itemIndex != 12 ORDER BY itemIndex",[labNumber])
 		prompts = [str(prompt[0]) for prompt in db.cursor.fetchall()]
 
 		db.cursor.execute("SELECT submissions.wID, submissions.URL, responses.itemIndex, response FROM responses, submissions, rubrics WHERE submissions.URL = responses.URL and submissions.labNumber = ? AND responses.labNumber = submissions.labNumber AND rubrics.labNumber = submissions.labNumber AND rubrics.itemIndex = responses.itemIndex AND rubrics.itemType = 'freeResponse' AND responses.itemIndex != 14 ORDER BY submissions.wID, responses.itemIndex",[labNumber])
@@ -39,8 +43,9 @@ def writeCommentsTabDelimited(db,filename,labNumber,writeEmails = False):
 			# print(peerComments)
 			# print(peerComments)
 			# Get the student's weights
-			db.cursor.execute("SELECT weight1, weight2, weight3, weight4, weight5, weight6 FROM weightsBIBI WHERE wID = ? and labNumber = ?",[wID, labNumber])
-			weights = [[float(d[i]) for i in range(6)] for d in db.cursor.fetchall()]
+			if reportWeights:
+				db.cursor.execute("SELECT weight1, weight2, weight3, weight4, weight5, weight6 FROM weightsBIBI WHERE wID = ? and labNumber = ?",[wID, labNumber])
+				weights = [[float(d[i]) for i in range(6)] for d in db.cursor.fetchall()]
 
 			# Get the student's grade vector
 			db.cursor.execute("SELECT grade FROM itemGrades WHERE wID = ? and itemGrades.labNumber = ? AND calibrated ORDER BY itemIndex",[wID, labNumber])
@@ -69,7 +74,9 @@ def writeCommentsTabDelimited(db,filename,labNumber,writeEmails = False):
 			dataString += '\t'
 			if URL is not None:
 				dataString += URL
-			for i in range(6):
+			# for i in range(6):
+			# TODO: don't hard code this
+			for i in range(5):
 				iComments = ''
 				if len(peerComments) > 0:
 					# for comment in peerComments:
@@ -109,8 +116,8 @@ def parseEmails(db,emailsFile):
 				db.cursor.execute("INSERT INTO students (wID, email) VALUES (NULL,?,?)",[email.split('@')[0]+'@gatech', email ])
 	db.conn.commit()
 
-db = SqliteDB("PHYS 2211 Fall 2013 Public.db")
-writeCommentsTabDelimited(db,'Lab 4 Test Comments.txt',4, writeEmails = False)
+# db = SqliteDB("PHYS 2211 Fall 2013 Public.db")
+# writeCommentsTabDelimited(db,'Lab 4 Test Comments.txt',4, writeEmails = False)
 # publicdb = SqliteDB("public.db")
 # createEmailsTable(publicdb)
 # parseEmails(publicdb,'/Users/Scott/Downloads/Coursera Mail Merge/Emails.csv')

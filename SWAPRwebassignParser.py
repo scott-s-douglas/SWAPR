@@ -21,7 +21,7 @@ def parseLinksFile(filename,db,labNumber,skipLinkless = False, linkCol = 4, verb
 
     data = []
     with open(filename, 'rU') as csvfile:
-        inputFile = csv.reader(csvfile, delimiter='\t', quotechar='|')
+        inputFile = csv.reader(csvfile, delimiter=',', quotechar='"')
         # TODO: change this to operate directly on the file itself, not just blindly copy the whole file into memory
         for row in inputFile:
             data.append(row)
@@ -124,7 +124,7 @@ def parseResponsesFile(filename,db,labNumber):
                     wID = data[line][wIDcol]
                     fullName = data[line][0]
 
-                    db.cursor.execute("INSERT INTO students (fullName, wID) VALUES (?,?)",[fullName,wID])
+                    # db.cursor.execute("INSERT INTO students (fullName, wID) VALUES (?,?)",[fullName,wID])
 
 
                     for i in range(len(questionCols)):  # go over every question
@@ -138,7 +138,12 @@ def parseResponsesFile(filename,db,labNumber):
                         try:
                             URL = str(URL[0])
                         except:
-                            print('Response has invalid URL: URL='+str(URL)+', wID='+wID)
+                            db.cursor.execute("SELECT assignments.URL FROM assignments, questions WHERE assignments.questionIndex = questions.questionIndex AND questions.wQuestion = ? AND assignments.labNumber = questions.labNumber AND assignments.labNumber = ? AND assignments.wID = ?",[wQuestion,labNumber, 'default'])
+                            URL = db.cursor.fetchone()
+                            try:
+                                URL = str(URL[0])
+                            except:
+                                print('Response has invalid URL: URL='+str(URL)+', wID='+wID)
                             # 5/0
                         # if wID == 'adeaton6@gatech':
                         #     print(URL)

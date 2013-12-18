@@ -52,14 +52,16 @@ class SqliteDB:
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS responseKeys (row INTEGER PRIMARY KEY NOT NULL, labNumber int, itemIndex int, response int, score number)")
 
 
-		weightString = ''
-		for i in range(6):
-			weightString += ', weight'+str(i+1)+' num'
+		# weightString = ''
+		# for i in range(6):
+		# 	weightString += ', weight'+str(i+1)+' num'
 
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS weightsBIBI (row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text"+weightString+", weightSum num)")
+		# self.cursor.execute("CREATE TABLE IF NOT EXISTS weightsBIBI (row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text"+weightString+", weightSum num)")
 
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS finalGrades(row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, URL text, grade number, calibrated boolean)")
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS itemGrades(row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, URL text, itemIndex int, grade number, calibrated boolean)")
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS weights(row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, weightType text, itemIndex int, weight number)")
+
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS finalGrades(row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, URL text, rawScore number, grade number, calibrated boolean)")
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS itemGrades(row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, URL text, itemIndex int, rawScore number, grade number, calibrated boolean)")
 
 
 
@@ -106,9 +108,6 @@ class SqliteDB:
 		for d in self.cursor.fetchall():
 			URLsAndGrades[str(d[0])] = stringToList(str(d[1]))
 		return URLsAndGrades
-
-	def scottFinalize(self,labNumber, seed, N, MOOC = False):
-		self.cursor.execute("SELECT ")
 
 	def finalize(self, labNumber, seed, N, MOOC=False):
 		##randomize the youtube URLs

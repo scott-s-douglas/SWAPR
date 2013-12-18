@@ -33,9 +33,10 @@ def assignURLs(db,labNumber,Npeer):
 			thisURL = submissionList[(i+j)%len(submissionList)][1]
 			if thisURL not in URLsToGrade:
 				URLsToGrade.append(submissionList[(i+j)%len(submissionList)][1])
-			else:
-				j += 1
 			j += 1
+			# safety valve
+			if j > len(submissionList):
+				break
 
 		random.shuffle(URLsToGrade)
 
