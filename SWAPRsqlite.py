@@ -6,8 +6,8 @@ import glob
 
 
 def makeDatabase(databaseName):
-	if databaseName[-3:] != ".db":
-		databaseName = databaseName + ".db"
+	if databaseName[-7:] != ".sqlite":
+		databaseName = databaseName + ".sqlite"
 	conn = sqlite3.connect(databaseName)
 	conn.commit()
 	conn.close()
@@ -29,8 +29,8 @@ class SqliteDB:
 	
 	#connects to the database, alters its name if named incorrectly
 	def __init__(self, databaseName):
-		if databaseName[-3:] != ".db":
-			databaseName = databaseName + ".db"
+		if databaseName[-7:] != ".sqlite":
+			databaseName = databaseName + ".sqlite"
 		if os.path.isfile(databaseName):
 			self.databaseName = databaseName;
 			self.conn = sqlite3.connect(self.databaseName)
@@ -60,8 +60,8 @@ class SqliteDB:
 
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS weights(row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, weightType text, itemIndex int, weight number)")
 
-		self.cursor.execute("CREATE TABLE IF NOT EXISTS finalGrades(row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, URL text, rawScore number, grade number, calibrated boolean)")
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS itemGrades(row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, URL text, itemIndex int, rawScore number, grade number, calibrated boolean)")
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS finalGrades(row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, URL text, rawScore number, grade number, calibrated boolean)")
 
 
 

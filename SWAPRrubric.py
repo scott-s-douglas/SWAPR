@@ -11,35 +11,15 @@ def addRubricItem(db, labNumber, itemIndex, itemType, itemValues, graded, itemPr
         db.cursor.execute("INSERT INTO responseKeys VALUES (NULL, ?,?,?,?)",[labNumber, itemIndex,i,float(itemValues[-(i+1)])])
     db.conn.commit()
 
-def getRubricGradedDict(db,labNumber):
-    db.cursor.execute("SELECT itemIndex, graded FROM rubrics WHERE labNumber = ?", [labNumber])
-    # return { d[0]: d[1] for d in db.cursor.fetchall() }
-
-def getRubricTypeDict(db,labNumber):
-    db.cursor.execute("SELECT itemIndex, itemType FROM rubrics WHERE labNumber = ?", [labNumber])
-    # return { d[0]: d[1] for d in db.cursor.fetchall() }
-
-def getRubricValuesDict(db,labNumber):
-    # Returns a list of dictionaries; each item index yields a dictionary of item responses (on Webassign, 0,1,2,etc.) vs. point values (12,10,6,4,etc.)
-    db.cursor.execute("SELECT itemIndex, itemType, itemValues FROM rubrics WHERE labNumber = ? AND graded", [labNumber])
-    valuesDict = []
-    for d in db.cursor.fetchall():
-        if d[1] == 'likert5':
-            itemValuesDict = { [4,3,2,1,0][i]: [float(entry) for entry in stringToList(d[2])][i] for i in range(len(stringToList(d[2]))) }
-        elif d[1] in ['yhn','likert3']:
-            itemValuesDict = { [2,1,0][i]: [float(entry) for entry in stringToList(d[2])][i] for i in range(len(stringToList(d[2]))) }
-        valuesDict.append(itemValuesDict)
-    return valuesDict
-
 def getMaxScore(db,labNumber):
     # assumes max score corresponds with response 0
     db.cursor.execute("SELECT score FROM responseKeys, rubrics WHERE response = 0 AND responseKeys.labNumber = ? AND responseKeys.itemIndex = rubrics.itemIndex AND responseKeys.labNumber = rubrics.labNumber AND graded",[labNumber])
-    scores = [float(entry[0]) for entry in db.cursor.fetchall()]
+    maxScoreVector = [float(entry[0]) for entry in db.cursor.fetchall()]
     maxScore = 0
-    for item in scores:
+    for item in maxScoreVector:
         maxScore += item
 
-    return maxScore
+    return maxScore, maxScoreVector
 
 
 def addDefaultRubric(db, labNumber):
