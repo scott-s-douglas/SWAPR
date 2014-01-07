@@ -8,12 +8,14 @@ def createFinalGradesTable(db):
     db.cursor.execute("CREATE TABLE IF NOT EXISTS grades (labNumber int, wID text, URL text, finalGrade number DEFAULT 0, finalGradeVector text)")
     db.conn.commit()
 
-def setGrade(db,labNumber,weightFunc,calibration = 'thisLab'):
+def setGrade(db,labNumber,weightFunc,calibration = 'thisLab', test = False):
     # We want to calculate the final grade for a given URL
     # We must know which rubric items count toward the grade
     # We must know what each response is worth for each item
 
 
+    db.cursor.execute("SELECT COUNT(itemIndex) FROM rubrics WHERE rubrics.graded AND labNumber = ?",[labNumber])    # we shouldn't need to do this for every wID
+    R = int(str(db.cursor.fetchone()[0]))
 
 
     # Gather the weights and scores of everyone who graded every URL submitted this lab
@@ -39,14 +41,22 @@ def setGrade(db,labNumber,weightFunc,calibration = 'thisLab'):
 
     elif calibration == 'prevLabs':
         # get the average weights
+        # NOTE: In assigning lab5 grades in Fall 2013 (using prevLab calibration), we drew only DISTINCT full weight vectors from all previous labs. This would occasionally cause students' average weights for each itemIndex to be miscalculated, causing some (but not all) finalGrades to have an error of +/- 0.5 percentage points.
+        # If this data needs to be replicated, the relevant query is
+        #====================
+        # db.cursor.execute("SELECT DISTINCT responses.wID, weight1, weight2, weight3, weight4, weight5, weight6 FROM responses, weightsBIBI, submissions WHERE submissions.URL = responses.URL AND responses.URL = ? AND responses.wID = weightsBIBI.wID AND submissions.labNumber = responses.labNumber ORDER BY responses.wID",[URL])
+        #====================
+        # Note that this statement queries only one URL at a time.
         db.cursor.execute("SELECT responses.wID, AVG(weight), weights.itemIndex FROM responses, weights WHERE responses.wID = weights.wID AND responses.itemIndex = weights.itemIndex and weights.weightType = ? GROUP BY responses.wID, weights.itemIndex  ORDER BY responses.wID, weights.itemIndex",[weightFunc.__name__])
         data = db.cursor.fetchall()
         # group by responder wID
         weightList = {}
         for wID, wIDweights in groupby(data, key = lambda x: str(x[0])):
             thisWeights = []
-            for entry in list(wIDweights):
+            wIDweights = list(wIDweights)
+            for entry in wIDweights:
                 thisWeights.append(float(entry[1]))
+                # average weight vector for each lab
             weightList.update({ wID: thisWeights })
 
         # get the responses
@@ -65,10 +75,13 @@ def setGrade(db,labNumber,weightFunc,calibration = 'thisLab'):
                     thisScores.append(float(entry[4]))
                 responses.append([wID, thisWeights, thisScores])
             URLlist.append([URL,responses])
+            if test and URL == 'http://youtu.be/rsMPrU0BNgY':
+                for entry in responses:
+                    print('New response: '+str(entry))
 
-    elif calibration == 'median':
-        db.cursor.execute("SELECT DISTINCT r.wID FROM responses r, submissions s WHERE r.URL=s.URL AND r.URL = ? AND r.labNumber=s.labNumber ORDER BY r.wID",[URL])
-        weights = [ [str(entry[0]),[] ] for entry in db.cursor.fetchall()]
+    # elif calibration == 'median':
+    #     db.cursor.execute("SELECT DISTINCT r.wID FROM responses r, submissions s WHERE r.URL=s.URL AND r.URL = ? AND r.labNumber=s.labNumber ORDER BY r.wID",[URL])
+    #     weights = [ [str(entry[0]),[] ] for entry in db.cursor.fetchall()]
         # print(weights)
 
     for URLentry in URLlist:
@@ -97,8 +110,6 @@ def setGrade(db,labNumber,weightFunc,calibration = 'thisLab'):
             thisScores = entry[2]
             URLresponses.update({wID:[thisWeights,thisScores]})
 
-        db.cursor.execute("SELECT COUNT(itemIndex) FROM rubrics WHERE rubrics.graded AND labNumber = ?",[labNumber])    # we shouldn't need to do this for every wID
-        R = int(str(db.cursor.fetchone()[0]))
         # print(R)
         numerators = R*[0]
         rawNumerators = R*[0]
@@ -115,12 +126,10 @@ def setGrade(db,labNumber,weightFunc,calibration = 'thisLab'):
                 # Now, we construct an item-by-item weighted average
                 if sum(weight) > 0 and len(score) == R:
                     for i in range(R):
-                        # if calibrated:
-                        # Calibrated
                         numerators[i] += weight[i]*score[i]    # Calibrated
                         denominators[i] += weight[i]
-                        # else:
-                        # Raw
+
+
                         rawNumerators[i] += score[i]   # Uncalibrated
                         rawDenominators[i] += 1
         elif calibration == 'median':
@@ -128,11 +137,13 @@ def setGrade(db,labNumber,weightFunc,calibration = 'thisLab'):
             for i in range(R):
                 iScore = []
                 for entry in URLresponses.values():
-                    score = entry[2]
+                    score = entry[2]    #TODO: is this right?
                     iScore.append(score[i])
                 numerators[i] = median(iScore)
                 denominators[i] = 1
 
+        if test:
+            print('New numerators: '+str(numerators))
 
         # If all the graders have weight 0 for a particular item, we give the student the student's own grade instead. Don't make the SQLite query unless we have to.
         selfGrade = None
@@ -181,18 +192,22 @@ def setGrade(db,labNumber,weightFunc,calibration = 'thisLab'):
             finalRawGradeVector = numerators
             finalRawGrade = sum(finalRawGradeVector)
 
+        if test:
+                print(submitterwID+' new finalGrade: '+str(finalGrade))
+
+        else:
         # Put the itemgrades in the itemgrades table, and the finalgrades in the finalgrades table
-        if calibration in ['thisLab','prevLabs']:
-            for i in range(len(finalGradeVector)):
-                db.cursor.execute("INSERT INTO itemGrades VALUES (NULL,?,?,?,?,?,?,1)",[labNumber,submitterwID,URL,itemIndices[i],finalGradeVector[i],finalGradeVector[i]*100/maxScoreVector[i]])
-            db.cursor.execute("INSERT INTO finalGrades VALUES (NULL,?,?,?,?,?,1)",[labNumber, submitterwID, URL, finalGrade, finalGrade*100/maxScore])
+            if calibration in ['thisLab','prevLabs']:
+                for i in range(len(finalGradeVector)):
+                    db.cursor.execute("INSERT INTO itemGrades VALUES (NULL,?,?,?,?,?,?,1)",[labNumber,submitterwID,URL,itemIndices[i],finalGradeVector[i],finalGradeVector[i]*100/maxScoreVector[i]])
+                db.cursor.execute("INSERT INTO finalGrades VALUES (NULL,?,?,?,?,?,1)",[labNumber, submitterwID, URL, finalGrade, finalGrade*100/maxScore])
 
-        for i in range(len(finalRawGradeVector)):
-            db.cursor.execute("INSERT INTO itemGrades VALUES (NULL,?,?,?,?,?,?,0)",[labNumber,submitterwID,URL,itemIndices[i],finalRawGradeVector[i],finalRawGradeVector[i]*100/maxScoreVector[i]])
+            for i in range(len(finalRawGradeVector)):
+                db.cursor.execute("INSERT INTO itemGrades VALUES (NULL,?,?,?,?,?,?,0)",[labNumber,submitterwID,URL,itemIndices[i],finalRawGradeVector[i],finalRawGradeVector[i]*100/maxScoreVector[i]])
 
-        db.cursor.execute("INSERT INTO finalGrades VALUES (NULL,?,?,?,?,?,0)",[labNumber, submitterwID, URL, finalRawGrade, finalRawGrade*100/maxScore])
-
-    db.conn.commit()
+            db.cursor.execute("INSERT INTO finalGrades VALUES (NULL,?,?,?,?,?,0)",[labNumber, submitterwID, URL, finalRawGrade, finalRawGrade*100/maxScore])
+    if not test:
+        db.conn.commit()
 
 
 def assignGrades(db,labNumber,weightFunc,calibration = 'thisLab'):

@@ -30,33 +30,37 @@ def weightBIBI(pairs):
 							weights[i][1][j] += 1/E
 	return weights
 
-def weightDIBI(studentGrades,expertGrades):
-	# BIBI: Binary Item-By-Item
-	# Calculate a scalar binary weight for each graded rubric item, then store them in a weight vector
+def weightDIBI_1(pairs):
+	# DIBI: Discrete Item-By-Item
+	# Calculate a scalar weight for each graded rubric item, then store them in a weight vector
 	# Need the ordered pair
-	weight = 6*[0]
-	if len(studentGrades) >= 1 and len(expertGrades) >=1:	# Make sure they're not blank
-		N = len(studentGrades)
-		doOnce = True
-		for i in range(N):	# We loop over all the student/expert video pairs
-			if len(expertGrades[i]) == len(studentGrades[i]):
-				R = len(studentGrades[i])
-				if doOnce:	# Make the weight vector the right length only if we get this far
-					weight = R*[0]
-					doOnce = False
-				for j in range(R):
+	N = len(pairs)	# number of students
+	R = len(pairs[0][1][0][0])	# number of graded rubric items == number of item weights
+	weights = []
+	# Get the length of the first set of graded responses; = # of graded rubric items
+	for i in range(N):
+		weights.append(['',[0 for j in range(R)]])
+	# print(pairs[0][1][0][0])
+	for i in range(len(pairs)):	# Now we do an individual student
+		# add the student's wID
+		weights[i][0] = pairs[i][0]
+		E = len(pairs[i][1])	# number of expert URLs
+		for pair in pairs[i][1]:
+			# print(pair)
+			studentGrade = pair[0]
+			expertGrade = pair[1]
+			if len(expertGrade) == len(studentGrade):	# Make sure they're not blank, and are the same length
+				for j in range(len(studentGrade)):
 					# If the student and expert response for a particular item are within 1 of each other, the student gets 1/N points in that weight coordinate
-					try:
-						if abs(int(studentGrades[i][j])-int(expertGrades[i][j])) == 0:
-							weight[j] += 1/N
-						elif abs(int(studentGrades[i][j])-int(expertGrades[i][j])) == 1:
-							weight[j] += 0.8/N
-						elif abs(int(studentGrades[i][j])-int(expertGrades[i][j])) == 2:
-							weight[j] += 1/N
-					except:
-						# print("Could not calibrate "+str(studentGrades[i])+" with "+str(expertGrades[i]))
-						pass
-	return weight
+					if studentGrade[j] != None:
+						gradeDiff = abs(float(studentGrade[j])-float(expertGrade[j]))
+						if gradeDiff <= 1.0:
+							weights[i][1][j] += 1/E
+						elif 1.0 < gradeDiff <= 2.0:
+							weights[i][1][j] += 0.5/E
+						else:
+							pass
+	return weights
 
 def addWeightOld(db,wID,weight,labNumber):
 	G = len(weight)
