@@ -9,7 +9,7 @@ import math
 labNumber = 1
 group = 'Campus'
 # Make histograms!
-db = SqliteDB("2211 Fall 2013 "+group+".db")
+db = SqliteDB("PHYS 2211 Fall 2013 "+group+".db")
 maxScore = getMaxScore(db,labNumber)
 
 def autolabel(rects):
@@ -29,7 +29,7 @@ def getExpertURLs(filename):
 
 
 # # Get the item scores
-if False:
+if True:
     db.cursor.execute("SELECT finalGradeVector, rawGradeVector FROM grades WHERE labNumber = ? and finalGrade != 0",[labNumber])
     gradesData = [ [stringToList(datum[0]), stringToList(datum[1])] for datum in db.cursor.fetchall()]
 
@@ -110,7 +110,7 @@ if False:
 # print(totalResponses[1][1])
 
 # Item-by-item plot
-if False:
+if True:
     fig = plt.figure(figsize=(20,100))
     fig.suptitle("Lab "+str(labNumber)+" (Public)")
     plt.figtext(0.05,0.5,'Number of Responses',rotation=90)
@@ -161,11 +161,11 @@ if False:
 
 # Raw responses item-by-item plot
 if False:
-    for labNumber in [1,2,3]:
-        for group in ['Campus','Public']:
+    for labNumber in [1,2,3,4]:
+        for group in ['Campus']:
             print('Plotting Lab '+str(labNumber)+' '+group+'...')
 
-            db = SqliteDB("2211 Fall 2013 "+group+".db")
+            db = SqliteDB("PHYS 2211 Fall 2013 "+group+".sqlite")
 
             expertURLs = getExpertURLs('Lab'+str(labNumber)+'Experts.txt')
             # print(expertURLs)
@@ -324,7 +324,7 @@ if False:
     plt.show()
 
 # Histogram sorted by expert score
-if True:
+if False:
     for group in ['Public','Campus']:
         likert5pairs = []
         yhnPairs = []

@@ -2,7 +2,7 @@ from __future__ import division, print_function
 from SWAPRsqlite import *
 from SWAPRrubric import *
 from itertools import groupby
-from numpy import median
+from numpy import median, mean
 
 def createFinalGradesTable(db):
     db.cursor.execute("CREATE TABLE IF NOT EXISTS grades (labNumber int, wID text, URL text, finalGrade number DEFAULT 0, finalGradeVector text)")
@@ -140,6 +140,16 @@ def setGrade(db,labNumber,weightFunc,calibration = 'thisLab', test = False):
                     score = entry[2]    #TODO: is this right?
                     iScore.append(score[i])
                 numerators[i] = median(iScore)
+                denominators[i] = 1
+
+        elif calibration == 'mean':
+            # make the denominators all 1 (we won't use them), make each numerator the mean score from all the graders
+            for i in range(R):
+                iScore = []
+                for entry in URLresponses.values():
+                    score = entry[2]    #TODO: is this right?
+                    iScore.append(score[i])
+                numerators[i] = mean(iScore)
                 denominators[i] = 1
 
         if test:
