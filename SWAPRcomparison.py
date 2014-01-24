@@ -188,8 +188,10 @@ woMean = calibAlg("woMean",sumWinnersMean,weightDIBI_1,longName = "Winners Only 
 noZeroes = calibAlg("noZeroes",sumNoZeroesMedian,weightDIBI_1,longName = "No Zeroes")
 medianAlg = calibAlg("median",sumMedian,longName = "Median")
 meanAlg = calibAlg("mean",sumMean,longName = "Mean")
+#gaussian = calibAlg("gaussian",sumMean,longName = "Gaussian")
 
-calibAlgs = [BIBI_1,BIBI_0,woMedian,woMean,noZeroes,medianAlg,meanAlg]
+
+calibAlgs = [BIBI_1,BIBI_0,woMedian,woMean,noZeroes,medianAlg,meanAlg]#, gaussian]
 algNamesStrings=[alg.name for alg in calibAlgs]
 
 plot = True
@@ -204,7 +206,7 @@ if gross:
 
         for labNumber in [1,2,3,4]:
             print("Plotting Lab "+str(labNumber)+'...')
-            db = SqliteDB("PHYS 2211 Fall 2013 Campus.sqlite")
+            db = SqliteDB("AnonymousCampus.sqlite")
 
             db.cursor.execute("SELECT DISTINCT URL FROM experts WHERE practice AND labNumber = ?",[labNumber])
             expertURLs = [str(entry[0]) for entry in db.cursor.fetchall()]
@@ -295,7 +297,7 @@ if gross:
 
 for n in [2,3,5,10,20,50]:
     if sample:
-        db = SqliteDB("PHYS 2211 Fall 2013 Public.sqlite")
+        db = SqliteDB("AnonymousCampus.sqlite")
         db.cursor.execute("SELECT DISTINCT URL FROM experts WHERE practice AND URL is not Null")
         expertURLs = [str(entry[0]) for entry in db.cursor.fetchall()]
         for URL in expertURLs:
@@ -337,4 +339,4 @@ for n in [2,3,5,10,20,50]:
                         ax.text(480,N*len(expertURLs)/32,'mean='+str('%.3f' % mean(sqDiffs))+'\nstDev='+str('%.3f' % std(sqDiffs)),verticalalignment='top',horizontalalignment='right')
                     fig.suptitle(u"Distribution of ∑(∆s)^2 for N="+str(N)+" groups of n="+str(n)+" graders")
                 # plt.show()
-                plt.savefig('/Users/Scott/Desktop/AlgFigs/'+getYoutubeID(URL)+' Sample N='+str(N)+' n='+str(n)+'.png')
+                plt.savefig('./algfigsGaussian'+getYoutubeID(URL)+' Sample N='+str(N)+' n='+str(n)+'.png')
