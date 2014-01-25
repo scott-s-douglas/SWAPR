@@ -3,14 +3,50 @@ from SWAPRsqlite import *
 from SWAPRrubric import *
 from itertools import groupby
 
-def weightBIBI(pairs):
+# The "pairs" list contains one entry for each student. Each entry looks like
+# [ 'wID' , [ [ [studentResponse0],[expertResponse0] ], [ [studentResponse1],[expertResponse1] ]...  ], [itemIndices] ]
+
+def weightOffset(pairs,scoresDict):
+	# Calculate the average difference betwen student/expert response for each item.
+	N = len(pairs)	# number of students
+	R = len(pairs[0][2])	# number of graded rubric items == number of item weights
+	offsets = []
+
+	# Naively assume that the first pairs entry includes a proper itemIndices list and itemScores list
+	itemIndices = pairs[0][2]
+
+	# Get the number of items
+	for i in range(N):
+		offsets.append(['',[0 for j in range(R)]])
+	for i in range(len(pairs)):
+		# add student i's wID
+		offsets[i][0] = pairs[i][0]
+		E = len(pairs[i][1])	# number of response pairs
+		for pair in pairs[i][1]:
+			studentGrade = pair[0]
+			expertGrade = pair[1]
+			if len(expertGrade) == len(studentGrade) and len(studentGrade) == R:	# Make sure they're not blank, and are the same length
+				for j in range(R):
+					# If the student and expert response for a particular item are within 1 of each other, the student gets 1/N points in that weight coordinate
+					if studentGrade[j] != None:
+						# The offset for an item is the average (student - expert) score; when we're calculating grades, we'll need to SUBTRACT this offset from the student score.
+						studentScore = scoresDict[itemIndices[j]][studentGrade[j]]
+						try:
+							expertScore = scoresDict[itemIndices[j]][round(expertGrade[j])]	# Lab 1 had fractional expert grades
+						except:
+							print(expertGrade)
+						offsets[i][1][j] += (studentScore-expertScore)/E
+	return offsets
+				
+
+def weightBIBI(pairs,scoresDict):
 	# BIBI: Binary Item-By-Item
 	# Calculate a scalar binary weight for each graded rubric item, then store them in a weight vector
 	# Need the ordered pair
 	N = len(pairs)	# number of students
+	# Get the length of the first set of graded responses; = # of graded rubric items
 	R = len(pairs[0][2])	# number of graded rubric items == number of item weights
 	weights = []
-	# Get the length of the first set of graded responses; = # of graded rubric items
 	for i in range(N):
 		weights.append(['',[0 for j in range(R)]])
 	# print(pairs[0][1][0][0])
@@ -30,14 +66,14 @@ def weightBIBI(pairs):
 							weights[i][1][j] += 1/E
 	return weights
 
-def weightDIBI_1(pairs):
+def weightDIBI_1(pairs,scoresDict):
 	# DIBI: Discrete Item-By-Item
 	# Calculate a scalar weight for each graded rubric item, then store them in a weight vector
 	# Need the ordered pair
 	N = len(pairs)	# number of students
+	# Get the length of the first set of graded responses; = # of graded rubric items
 	R = len(pairs[0][2])	# number of graded rubric items == number of item weights
 	weights = []
-	# Get the length of the first set of graded responses; = # of graded rubric items
 	for i in range(N):
 		weights.append(['',[0 for j in range(R)]])
 	# print(pairs[0][1][0][0])
@@ -84,7 +120,6 @@ def perform(f, *args):
 def getExpertResponsePairs(data):
 	gradePairsBywID = []
 	# group by wID
-	# data.sort(key=lambda entry: str(entry[0]))
 	for wID, tempwIDgroup in groupby(data,lambda entry: str(entry[0])):
 		gradePairs = []
 		wID = str(wID)
@@ -96,12 +131,8 @@ def getExpertResponsePairs(data):
 			studentResponses = []
 			expertResponses = []
 			itemIndices = []
+
 			for entry in sortedList:
-				try:
-					itemIndices.append(int(entry[4]))
-				except:
-					print("Invalid item index: "+str(entry))
-					break
 				try:
 					studentResponses.append(float(entry[2]))
 				except:
@@ -111,6 +142,11 @@ def getExpertResponsePairs(data):
 					expertResponses.append(float(entry[3]))
 				except:
 					print('Invalid expert response! URL='+str(URL))
+				try:
+					itemIndices.append(int(entry[4]))
+				except:
+					print("Invalid item index: "+str(entry))
+					break
 			gradePairs.append([studentResponses,expertResponses])
 
 		gradePairsBywID.append([wID,gradePairs,itemIndices])
@@ -120,9 +156,9 @@ def getExpertResponsePairs(data):
 
 
 def assignWeights(db,labNumber,f):
-	db.cursor.execute("SELECT responses.wID, responses.URL, responses.response, experts.response, responses.itemIndex  FROM responses, experts, rubrics WHERE responses.itemIndex = experts.itemIndex AND responses.itemIndex = rubrics.itemIndex AND rubrics.graded AND rubrics.labNumber = responses.labNumber AND experts.labNumber = responses.labNumber AND responses.labNumber = ? and experts.URL = responses.URL AND experts.labNumber = responses.labNumber AND NOT experts.practice ORDER BY responses.wID, responses.URL, responses.itemIndex",[labNumber])
+	db.cursor.execute("SELECT responses.wID, responses.URL, responses.response, experts.response, responses.itemIndex FROM responses, experts, rubrics WHERE responses.itemIndex = experts.itemIndex AND responses.itemIndex = rubrics.itemIndex AND rubrics.graded AND rubrics.labNumber = responses.labNumber AND experts.labNumber = responses.labNumber AND responses.labNumber = ? and experts.URL = responses.URL AND experts.labNumber = responses.labNumber AND NOT experts.practice ORDER BY responses.wID, responses.URL, responses.itemIndex",[labNumber])
 	pairs = getExpertResponsePairs([entry for entry in db.cursor.fetchall()])
-	for entry in f(pairs):
+	for entry in f(pairs,getScoresDict(db,labNumber)):
 		try:
 			wID = entry[0]
 			weight = entry[1]

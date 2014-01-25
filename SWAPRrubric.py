@@ -1,4 +1,5 @@
 from SWAPRsqlite import *
+from itertools import groupby
 
 def createRubricsTable(db):
     db.cursor.execute("CREATE TABLE IF NOT EXISTS rubrics (labNumber int, itemIndex int, itemType text, itemValues text, graded boolean, itemPrompt text)")
@@ -15,11 +16,21 @@ def getMaxScore(db,labNumber):
     # assumes max score corresponds with response 0
     db.cursor.execute("SELECT score FROM responseKeys, rubrics WHERE response = 0 AND responseKeys.labNumber = ? AND responseKeys.itemIndex = rubrics.itemIndex AND responseKeys.labNumber = rubrics.labNumber AND graded",[labNumber])
     maxScoreVector = [float(entry[0]) for entry in db.cursor.fetchall()]
-    maxScore = 0
-    for item in maxScoreVector:
-        maxScore += item
+    maxScore = sum(maxScoreVector)
 
     return maxScore, maxScoreVector
+
+def getScoresDict(db,labNumber):
+    # Construct a dictionary of dictionaries where each possible response is paired with its score
+    db.cursor.execute("SELECT itemIndex, response, score FROM responseKeys WHERE labNumber = ? AND score IS NOT NULL ORDER BY itemIndex, response, score",[labNumber])
+    data = [[int(entry[0]),int(entry[1]),float(entry[2])] for entry in db.cursor.fetchall()]
+    scoresDict = {}
+    for itemIndex, itemIndexGroup in groupby(data, lambda entry: entry[0]):
+        thisScores = {}
+        for entry in itemIndexGroup:
+            thisScores.update({entry[1]:entry[2]})
+        scoresDict.update({entry[0]:thisScores})
+    return scoresDict
 
 
 def addDefaultRubric(db, labNumber):
