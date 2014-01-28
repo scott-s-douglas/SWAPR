@@ -1,4 +1,5 @@
 # encoding: utf-8
+from __future__ import division
 from SWAPRsqlite import *
 from SWAPRgrades import *
 from SWAPRweights import *
@@ -6,9 +7,11 @@ from SWAPRstrings import getYoutubeID
 import csv
 import matplotlib.pyplot as plt
 from numpy import median, mean, std
+from scipy.stats import sem
 from itertools import combinations
 from random import shuffle
 from SWAPRrubric import getMaxScore
+import operator as op
 
 class calibAlg:
     def __init__(self,name,sumFunc,weightFunc=weightBIBI,longName = '',offsetStyle = None):
@@ -19,6 +22,26 @@ class calibAlg:
         if longName == '':
             self.longName = name
 
+def getNstudents(db,URL):
+    db.cursor.execute("SELECT COUNT(DISTINCT wID) FROM responses WHERE URL = ? AND response is not NULL",[URL])
+    return(int(db.cursor.fetchone()[0]))
+
+def ncr(n, r):
+    r = min(r, n-r)
+    if r == 0: return 1
+    numer = reduce(op.mul, xrange(n, n-r, -1))
+    denom = reduce(op.mul, xrange(1, r+1))
+    return numer//denom
+
+
+def semFinite(data,N):
+    'Standard error of the mean with finite population correction'
+    # print(N)
+    # print(len(data))
+    if len(data) < 0.05*N:
+        return sem(data)
+    else:
+        return sem(data)*((N-len(data))/(N-1))**0.5
 
 def weightedSumMedianFallback(weights,scores):
     # Computes a weighted sum (weights[i][j]*scores[i][j])/sum(weights[i][j]) for each j; if all weights[i][j] are 0 for a given j, then finalGradeVector[j] is the median of all scores[i][j]
@@ -206,13 +229,16 @@ def squareError(a,b):
         print('Two lists are not the same length')
 
 def getSampleGrades(db,expertURL,n,N,alg,allCombinations=False):
+    db.cursor.execute("SELECT DISTINCT labNumber FROM experts WHERE URL = ?",[expertURL])
+    labNumber = int(db.cursor.fetchone()[0])
+    maxScore, maxScoreVector = getMaxScore(db,labNumber)
     weights, scores, offsets = getWeightsScores(db,expertURL,alg.weightFunc,alg.offsetStyle)
     expertGrade,expertGradeVector = getExpertGrade(db,expertURL)
     grades = []
     gradeVectors = []
     squareDiffs = []
     Nstudents = len(weights)
-    combos = [random_combination(range(Nstudents),n) for i in range(N)]
+    combos = [random_combination(range(Nstudents),n) for i in range(min(N,ncr(Nstudents,n)))]
     counter = 1
     for combo in combos:
         if counter%(round(len(combos)/2)) == 0:
@@ -223,16 +249,13 @@ def getSampleGrades(db,expertURL,n,N,alg,allCombinations=False):
         if alg.offsetStyle == None:
             grade, gradeVector = alg.sumFunc(sampleWeights,sampleScores)
         else:
-            db.cursor.execute("SELECT DISTINCT labNumber FROM experts WHERE URL = ?",[expertURL])
-            labNumber = int(db.cursor.fetchone()[0])
-            maxScore, maxScoreVector = getMaxScore(db,labNumber)
             sampleOffsets = [offsets[j] for j in combo]
             grade, gradeVector = alg.sumFunc(sampleWeights,sampleScores,sampleOffsets,maxScoreVector)
         grades.append(grade)
         gradeVectors.append(gradeVector)
         sqDiff = squareError(gradeVector,expertGradeVector)
         squareDiffs.append(sqDiff)
-    return expertGrade, grades, squareDiffs
+    return expertGrade, grades, squareDiffs, Nstudents
 
 # Define Algorithms
 BIBI_1 = calibAlg("BIBI_1",weightedSumMedianFallback,weightBIBI,longName = u"Binary Item-by-Item ±1")
@@ -252,7 +275,12 @@ algNamesStrings=[alg.name for alg in calibAlgs]
 plot = False
 sample = True
 gross = False
+errorReport = True
 N=10**5 # 149 students, so max number of groups is (N choose n)
+group = 'Public'
+db = SqliteDB("PHYS 2211 Fall 2013 "+group+".sqlite")
+db.cursor.execute("SELECT DISTINCT URL FROM experts WHERE practice AND URL is not Null")
+expertURLs = [str(entry[0]) for entry in db.cursor.fetchall()]
 if gross:
     with open('Comparisons.csv','w') as csvFile:
         csvWriter = csv.writer(csvFile, delimiter=',',quotechar='|',quoting=csv.QUOTE_MINIMAL)
@@ -348,19 +376,17 @@ if gross:
 
         csvWriter.writerow(["Mean sum(abs(diff)):"]+[str('%.2f'%num) for num in diffMeans])
         csvWriter.writerow(["Mean sqrt(sum(diff^2)):"]+[str('%.2f'%num) for num in sqdiffMeans])
-for group in ['Campus','Public']:
-    for n in [2,3,4,5,10,20,50,100]:
-        with open('Full Algorithm Comparison '+group+' n='+str(n)+'.csv','w') as outputFile:
-            output = csv.writer(outputFile, delimiter=',',quotechar = '|',quoting=csv.QUOTE_MINIMAL)
-            output.writerow(['<∑(∆s)^2>'])
-            output.writerow(['']+algNamesStrings)
-            if sample:
-                db = SqliteDB("PHYS 2211 Fall 2013 "+group+".sqlite")
-                db.cursor.execute("SELECT DISTINCT URL FROM experts WHERE practice AND URL is not Null")
-                expertURLs = [str(entry[0]) for entry in db.cursor.fetchall()]
+for group in ['Public']:
+    # Got partway through Public n=3
+    for n in [6,10,20,50,100]:
+        if sample:
+            with open('Full Algorithm Comparison '+group+' n='+str(n)+'.csv','w') as outputFile:
+                output = csv.writer(outputFile, delimiter=',',quotechar = '|',quoting=csv.QUOTE_MINIMAL)
+                output.writerow(['<∑(∆s)^2>'])
+                output.writerow(['']+algNamesStrings)
                 for URL in expertURLs:
                     outputString = []
-                    with open('./Sample Grades/SampleGrades '+group+' n='+str(n)+'.csv','w') as csvFile:
+                    with open('./Sample Grades/SampleGrades '+getYoutubeID(URL)+' '+group+' n='+str(n)+'.csv','w') as csvFile:
                         csvWriter = csv.writer(csvFile, delimiter=',',quotechar='|',quoting=csv.QUOTE_MINIMAL)
                         csvWriter.writerow(['Algorithm',u'sum(delta s)^2 for one video with n='+str(n)+' graders'])
 
@@ -370,34 +396,67 @@ for group in ['Campus','Public']:
                             print("Sampling "+alg.name+" "+group+" n="+str(n)+'...')
                             data.update({alg.name:{'sqDiffs':[],'grades':[]}})
                             random.seed=(342394857928347)
-                            expertGrade, calibGrades, sqDiffs = getSampleGrades(db,URL,n,N,alg,allCombinations=False)
+                            expertGrade, calibGrades, sqDiffs, Nstudents = getSampleGrades(db,URL,n,N,alg,allCombinations=False)
                             data[alg.name]['sqDiffs']=sqDiffs
                             data[alg.name]['grades']=calibGrades
                             csvWriter.writerow([alg.name]+data[alg.name]['sqDiffs'])
                             outputString.append(mean(sqDiffs))
                     output.writerow([getYoutubeID(URL)]+outputString)
                 if plot:
-                    with open('SampleGrades '+group+' n='+str(n)+'.csv','r') as csvFile:
-                        csvReader = csv.reader(csvFile,delimiter=',',quotechar='|')
-                        next(csvReader, None)  # skip the first line (header)
-                        fig = plt.figure(figsize=(8*len(calibAlgs),7))
-                        doOnce = True
-                        for row in csvReader:
-                            algName = row[0]
-                            print("Plotting "+algName+'...')
-                            sqDiffs = [float(num) for num in row[1:]]
-                            ax = fig.add_subplot(1,len(calibAlgs),algNamesStrings.index(algName)+1)
-                            ax.hist(sqDiffs,histtype='step',bins=[i*25 for i in range(20)],label=algName)
-                            if doOnce:
-                                ax.set_ylabel('Number of Groups')
-                                doOnce = False
-                            else:
-                                ax.set_yticklabels([])
-                            ax.set_xlabel(u'∑(∆s)^2')
-                            ax.set_title(algName)
-                            ax.set_ylim([0,N*len(expertURLs)/32])
-                            ax.set_xlim([0,500])
-                            ax.text(480,N*len(expertURLs)/32,'mean='+str('%.3f' % mean(sqDiffs))+'\nstDev='+str('%.3f' % std(sqDiffs)),verticalalignment='top',horizontalalignment='right')
-                        fig.suptitle(u"Distribution of ∑(∆s)^2 for N="+str(N)+" groups of n="+str(n)+" graders")
-                    # plt.show()
-                    plt.savefig('/Users/Scott/Desktop/AlgFigs/'+getYoutubeID(URL)+' Sample '+group+' N='+str(N)+' n='+str(n)+'.png')
+                        with open('SampleGrades '+group+' n='+str(n)+'.csv','r') as csvFile:
+                            csvReader = csv.reader(csvFile,delimiter=',',quotechar='|')
+                            next(csvReader, None)  # skip the first line (header)
+                            fig = plt.figure(figsize=(8*len(calibAlgs),7))
+                            doOnce = True
+                            for row in csvReader:
+                                algName = row[0]
+                                print("Plotting "+algName+'...')
+                                sqDiffs = [float(num) for num in row[1:]]
+                                ax = fig.add_subplot(1,len(calibAlgs),algNamesStrings.index(algName)+1)
+                                ax.hist(sqDiffs,histtype='step',bins=[i*25 for i in range(20)],label=algName)
+                                if doOnce:
+                                    ax.set_ylabel('Number of Groups')
+                                    doOnce = False
+                                else:
+                                    ax.set_yticklabels([])
+                                ax.set_xlabel(u'∑(∆s)^2')
+                                ax.set_title(algName)
+                                ax.set_ylim([0,N*len(expertURLs)/32])
+                                ax.set_xlim([0,500])
+                                ax.text(480,N*len(expertURLs)/32,'mean='+str('%.3f' % mean(sqDiffs))+'\nstDev='+str('%.3f' % std(sqDiffs)),verticalalignment='top',horizontalalignment='right')
+                            fig.suptitle(u"Distribution of ∑(∆s)^2 for N="+str(N)+" groups of n="+str(n)+" graders")
+                        # plt.show()
+                        plt.savefig('/Users/Scott/Desktop/AlgFigs/'+getYoutubeID(URL)+' Sample '+group+' N='+str(N)+' n='+str(n)+'.png')
+        # Now, calculate the standard error of the mean for each algorithm over all URLs.
+    if errorReport:
+        with open('Errors '+group+'.csv','w') as errorsFile:
+            errorsWriter = csv.writer(errorsFile, delimiter=',',quotechar = '|')
+            for n in [2,3,4,5,6,10,20,50,100]:
+                print('n='+str(n))
+                errorsWriter.writerow(['n='+str(n)]+algNamesStrings)
+                thisnErrors = {}
+                for algName in calibAlgs:
+                    thisnErrors.update({algName.name:[]})
+                for URL in expertURLs:
+                    print(URL)
+                    for file in listdir_nohidden('./Sample Grades/'):
+                        if getYoutubeID(URL) in file and 'n='+str(n)+'.csv' in file and group in file:
+                            errsByURL = []
+                            with open(file,'r') as nFile:
+                                nErrors = csv.reader(nFile,delimiter=',',quotechar='|')
+                                nErrors.next()
+                                Nstudents = getNstudents(db,URL)
+                                for row in nErrors:
+                                    alg = row[0]
+                                    errs = [float(entry) for entry in row[1:]]
+                                    thisnErrors[alg] += errs
+                                    # print(errs[0:20])
+                                    standardError = semFinite(errs,ncr(Nstudents,n))
+                                    # standardError = sem(errs)
+                                    errsByURL.append(standardError)
+                            errorsWriter.writerow([getYoutubeID(URL)]+errsByURL)
+                errorsWriter.writerow(['Overall Error']+[sem(thisnErrors[alg]) for alg in algNamesStrings])
+
+
+
+
