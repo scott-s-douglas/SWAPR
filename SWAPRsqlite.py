@@ -64,7 +64,8 @@ class SqliteDB:
 		self.cursor.execute("CREATE TABLE IF NOT EXISTS finalGrades(row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, URL text, rawScore number, grade number, calibrated boolean)")
 
 
-
+		# Calculate calibratoin grades
+		self.cursor.execute("CREATE TABLE IF NOT EXISTS calibrationGrades (row INTEGER PRIMARY KEY NOT NULL, labNumber int, wID text, nCalibration int, calibratedItems text, weightType text, rawScore number, grade number, UNIQUE(wID, labNumber, nCalibration, calibratedItems, weightType))")
 		##check to see if the tables have already been created
 		#creates columns in tables for each lab specified
 		self.conn.commit()

@@ -21,7 +21,7 @@ def parseLinksFile(filename,db,labNumber,skipLinkless = False, linkCol = 4, verb
 
     data = []
     with open(filename, 'rU') as csvfile:
-        inputFile = csv.reader(csvfile, delimiter=',', quotechar='"')
+        inputFile = csv.reader(csvfile, delimiter='\t', quotechar='"')
         # TODO: change this to operate directly on the file itself, not just blindly copy the whole file into memory
         for row in inputFile:
             data.append(row)

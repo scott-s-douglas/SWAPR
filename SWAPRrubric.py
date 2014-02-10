@@ -20,16 +20,46 @@ def getMaxScore(db,labNumber):
 
     return maxScore, maxScoreVector
 
+def getNgradedItems(db,labNumber,likert5only=False):
+    "Return the number of graded items in a particular lab's rubric. This function makes a SQLite call, so don't run it between a select and a fetch on that same database."
+    if not likert5only:
+        db.cursor.execute('''SELECT count(*)
+            FROM rubrics
+            WHERE
+                labNumber = ?
+                AND graded
+            ''',[labNumber])
+    else:
+        db.cursor.execute('''SELECT count(*)
+            FROM rubrics
+            WHERE
+                labNumber = ?
+                AND graded
+                AND itemType = 'likert5'
+            ''',[labNumber])
+    Ngraded = int(db.cursor.fetchone()[0])
+    return Ngraded
+
 def getScoresDict(db,labNumber):
-    # Construct a dictionary of dictionaries where each possible response is paired with its score
-    db.cursor.execute("SELECT itemIndex, response, score FROM responseKeys WHERE labNumber = ? AND score IS NOT NULL ORDER BY itemIndex, response, score",[labNumber])
+    # Construct a dictionary of dictionaries where each possible response is paired with its score for GRADED items only
+    db.cursor.execute('''SELECT k.itemIndex, k.response, k.score 
+        FROM responseKeys k, rubrics r 
+        WHERE 
+            --match labNumber
+            r.labNumber = ?
+            AND r.labNumber = k.labNumber 
+            --match itemIndex
+            AND r.itemIndex = k.itemIndex
+            AND k.score IS NOT NULL 
+            AND r.graded
+        ORDER BY k.itemIndex, k.response, k.score''',[labNumber])
     data = [[int(entry[0]),int(entry[1]),float(entry[2])] for entry in db.cursor.fetchall()]
     scoresDict = {}
     for itemIndex, itemIndexGroup in groupby(data, lambda entry: entry[0]):
         thisScores = {}
-        for entry in itemIndexGroup:
-            thisScores.update({entry[1]:entry[2]})
-        scoresDict.update({entry[0]:thisScores})
+        for pair in itemIndexGroup:
+            thisScores.update({pair[1]:pair[2]})
+        scoresDict.update({itemIndex:thisScores})
     return scoresDict
 
 

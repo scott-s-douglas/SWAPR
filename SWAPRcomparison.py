@@ -138,8 +138,8 @@ def weightedSumOffset(weights,scores,offsets,maxScores):
     numerators = [0]*R
     denominators = [0]*R
     for j in range(R):
-        numerators[j] = sum([weights[i][j]*(scores[i][j]-offsets[i][j]) for i in range(N)])
-        denominators[j] = sum([weights[i][j] for i in range(N)])
+        numerators[j] = sum([abs(weights[i][j])*(scores[i][j]-offsets[i][j]) for i in range(N)])
+        denominators[j] = sum([abs(weights[i][j]) for i in range(N)])
         if denominators[j] == 0:
             numerators[j] = median([scores[i][j] for i in range(N)])
             denominators[j] = 1
@@ -194,6 +194,7 @@ def getWeightsScores(db,URL,weightFunc=weightBIBI,offsetStyle=None):
     for wID, wIDweights in groupby(list(data), key=lambda x: str(x[1])):
         thisWeight = []
         thisScore = []
+
         for entry in list(wIDweights):
             # append every weight value
             thisWeight.append(float(entry[3]))
@@ -202,14 +203,25 @@ def getWeightsScores(db,URL,weightFunc=weightBIBI,offsetStyle=None):
             weights.append(thisWeight)
             scores.append(thisScore)
 
-    return weights, scores, offsets
+    return weights, scores, offsets, itemIndices
 
-def random_combination(iterable, r):
-    "Random selection from itertools.combinations(iterable, r)"
-    pool = tuple(iterable)
-    n = len(pool)
-    indices = sorted(random.sample(xrange(n), r))
-    return list(pool[i] for i in indices)
+def randomCombinations(iterable, N, n):
+    "Random selection of N combinations from itertools.combinations(iterable, n)"
+    # Return all combinations if N >= (total number of combinations)
+    # The number of combinations can get very large!
+    # pool = tuple(combinations(iterable, n))
+    # print(len(pool))
+    # Ncombos = len(pool)
+    # indices = sorted(random.sample(xrange(Ncombos), min(N,Ncombos)))
+    # return list(pool[i] for i in indices)
+    combos = []
+    while len(combos) < min(N,ncr(len(iterable),n)):
+        # print('Generating combo '+str(len(combos) + 1)+'...')
+        indices = sorted(random.sample(xrange(len(iterable)), n))
+        combo = [iterable[index] for index in indices]
+        if combo not in combos: # This could take a very long time for large N, but hopefully not as long as generating tuple(combinations(iterable, n))
+            combos.append(combo)
+    return combos
 
 def getExpertGrade(db,expertURL):
     db.cursor.execute("SELECT e.itemIndex, e.response, k.score FROM experts e, rubrics r, responseKeys k WHERE URL = ? AND e.labNumber = r.labNumber AND e.labNumber = k.labNumber AND e.itemIndex = r.itemIndex AND e.itemIndex = k.itemIndex AND e.response = k.response AND graded ORDER BY e.itemIndex",[expertURL])
@@ -228,235 +240,144 @@ def squareError(a,b):
     else:
         print('Two lists are not the same length')
 
-def getSampleGrades(db,expertURL,n,N,alg,allCombinations=False):
+def generateSampleGrades(db,expertURL,n,alg,matchmaking='random'):
     db.cursor.execute("SELECT DISTINCT labNumber FROM experts WHERE URL = ?",[expertURL])
     labNumber = int(db.cursor.fetchone()[0])
     maxScore, maxScoreVector = getMaxScore(db,labNumber)
-    weights, scores, offsets = getWeightsScores(db,expertURL,alg.weightFunc,alg.offsetStyle)
-    expertGrade,expertGradeVector = getExpertGrade(db,expertURL)
-    grades = []
-    gradeVectors = []
-    squareDiffs = []
-    Nstudents = len(weights)
-    combos = [random_combination(range(Nstudents),n) for i in range(min(N,ncr(Nstudents,n)))]
-    counter = 1
-    for combo in combos:
-        if counter%(round(len(combos)/2)) == 0:
-            print("Grading "+expertURL+": "+str(round(counter*100/round(len(combos))))+'%')
-        counter += 1
-        sampleWeights = [weights[j] for j in combo]
-        sampleScores = [scores[j] for j in combo]
+    if alg.offsetStyle == None:
+        db.cursor.execute('''SELECT r.wID, r.itemIndex, k.score, w.weight
+            FROM responses r, rubrics rub, responseKeys k, weights w
+            WHERE 
+                --only one URL
+                r.URL = ? 
+                --match wID
+                AND r.wID = w.wID
+                --match itemIndex
+                AND r.itemIndex = rub.itemIndex 
+                AND r.itemIndex = k.itemIndex 
+                AND r.itemIndex = w.itemIndex 
+                --match labNumber
+                AND r.labNumber = rub.labNumber 
+                AND r.labNumber = k.labNumber 
+                AND r.labNumber = w.labNumber
+                --only graded items
+                AND rub.graded
+                --match score to student response
+                AND r.response = k.response 
+                --get the right weight
+                AND w.weightType = ?
+                ORDER BY r.wID, r.itemIndex
+                ''',[expertURL,alg.weightFunc.__name__])
+        data = db.cursor.fetchall()
+        studentScores = {}
+        for wID, wIDgroup in groupby(data, key = lambda x: x[0]):
+            wIDgroup = list(wIDgroup)
+            thisItemIndices = [int(entry[1]) for entry in wIDgroup]
+            thisScores = [float(entry[2]) for entry in wIDgroup]
+            thisWeights = [float(entry[3]) for entry in wIDgroup]
+            studentScores.update({wID:{'itemIndices':thisItemIndices,'scores':thisScores,'weights':thisWeights,'offsets':None}})
+    else:
+        db.cursor.execute('''SELECT r.wID, r.itemIndex, k.score, w.weight, off.weight
+            FROM responses r, rubrics rub, responseKeys k, weights w, weights off 
+            WHERE 
+                --only one URL
+                r.URL = ? 
+                --match wIDs
+                AND r.wID = w.wID
+                AND r.wID = off.wID
+                --match itemIndex
+                AND r.itemIndex = rub.itemIndex 
+                AND r.itemIndex = k.itemIndex 
+                AND r.itemIndex = w.itemIndex 
+                AND r.itemIndex = off.itemIndex 
+                --match labNumber
+                AND r.labNumber = rub.labNumber 
+                AND r.labNumber = k.labNumber 
+                AND r.labNumber = w.labNumber
+                AND r.labNumber = off.labNumber
+                --only graded items
+                AND rub.graded
+                --match score to student response
+                AND r.response = k.response 
+                --get the right weight
+                AND w.weightType = ?
+                --get the right offset
+                AND off.weightType = ?
+                ORDER BY r.wID, r.itemIndex
+                ''',[expertURL,alg.weightFunc.__name__ if alg.weightFunc != None else 'weightBIBI',alg.offsetStyle])
+        data = db.cursor.fetchall()
+        studentScores = {}
+        for wID, wIDgroup in groupby(data, key = lambda x: x[0]):
+            wIDgroup = list(wIDgroup)
+            thisItemIndices = [int(entry[1]) for entry in wIDgroup]
+            thisScores = [float(entry[2]) for entry in wIDgroup]
+            thisWeights = [float(entry[3]) for entry in wIDgroup]
+            thisOffsets = [float(entry[4]) for entry in wIDgroup]
+            studentScores.update({wID:{'itemIndices':thisItemIndices,'scores':thisScores,'weights':thisWeights,'offsets':thisOffsets}})
+
+    # Now get the peerGroups we're going to use, and split their wIDs up into lists of the appropriate size
+    db.cursor.execute('''SELECT g.peerGroup, g.wID from peerGroups p, groupMembers g
+        WHERE
+            --match peerGroup
+            p.peerGroup = g.peerGroup
+            --get the right nGroups
+            AND p.nGroup = ?
+            ORDER BY g.peerGroup
+            ''',[n])
+    data = db.cursor.fetchall()
+    peerGroups = []
+    for peerGroupID, group in groupby(data, key = lambda x: x[0]):
+        peerGroups.append([peerGroupID,[str(entry[1]) for entry in group]])
+
+    # MAIN SIMULATION LOOP
+    db.cursor.execute("INSERT INTO simulations VALUES (NULL,?,?,?,?)",[expertURL,len(peerGroups),n,alg.name])
+    expertFinalGrade, expertScore = getExpertGrade(db,expertURL)
+    for peerGroup in peerGroups:
+        peerGroupID = peerGroup[0]
+        wIDs = peerGroup[1]
+        # The pureOff style requires every score to be paired with a constant weight; by convention, weight = 1
+        weights = [studentScores[wID]['weights'] for wID in wIDs] if alg.name != 'pureOff' else [ [1 for entry in studentScores[wID]['weights'] ] for wID in wIDs]
+        scores = [studentScores[wID]['scores'] for wID in wIDs]
+        # When drawing student responses from among the groupMembers table, we assert that every student has completed every graded item for every expert video. If this is not the case, then the first student in the peerGroup might not have the same itemIndices as everyone else, and the next line will cause bad behavior
+        itemIndices = studentScores[wIDs[0]]['itemIndices']
         if alg.offsetStyle == None:
-            grade, gradeVector = alg.sumFunc(sampleWeights,sampleScores)
+            calibratedFinalGrade, calibratedScore = alg.sumFunc(weights,scores)
         else:
-            sampleOffsets = [offsets[j] for j in combo]
-            grade, gradeVector = alg.sumFunc(sampleWeights,sampleScores,sampleOffsets,maxScoreVector)
-        grades.append(grade)
-        gradeVectors.append(gradeVector)
-        sqDiff = squareError(gradeVector,expertGradeVector)
-        squareDiffs.append(sqDiff)
-    return expertGrade, grades, squareDiffs, Nstudents
+            offsets = [studentScores[wID]['offsets'] for wID in wIDs]
+            calibratedFinalGrade, calibratedScore = alg.sumFunc(weights,scores,offsets,maxScoreVector)
+        # Add entries to simulatedScores
+        for i in range(len(itemIndices)):
+            db.cursor.execute("INSERT INTO simulatedScores VALUES ((SELECT max(simulation) from simulations), ?, ?, ?,?)",[peerGroupID,itemIndices[i],calibratedScore[i],expertScore[i]])
+    db.conn.commit()
 
-# Define Algorithms
-BIBI_1 = calibAlg("BIBI_1",weightedSumMedianFallback,weightBIBI,longName = u"Binary Item-by-Item ±1")
-BIBI_0 = calibAlg("BIBI_0",weightedSumMedianFallback,weightDIBI_1,longName = u"Binary Item-by-Item ±0")
-# woMedian = calibAlg("woMedian",sumWinnersMedian,weightDIBI_1,longName = "Winners Only (Median)")
-woMean = calibAlg("woMean",sumWinnersMean,weightDIBI_1,longName = "Winners Only (Mean)")
-# noZeroes = calibAlg("noZeroes",sumNoZeroesMedian,weightDIBI_1,longName = "No Zeroes")
-medianAlg = calibAlg("median",sumMedian,longName = "Median")
-meanAlg = calibAlg("mean",sumMean,longName = "Mean")
-offsetMean_0 = calibAlg("offMean_0",weightedSumOffset,weightDIBI_1,longName = "Offset Mean ±0",offsetStyle = "weightOffset")
-offsetMean_1 = calibAlg("offMean_1",weightedSumOffset,weightBIBI,longName = u"Offset Mean ±1", offsetStyle = "weightOffset")
-pureOffset = calibAlg("pureOff",weightedSumOffset,None,longName = u"Pure Offset", offsetStyle = "weightOffset")
+def generateSamplePeerGroups(db,Nmax,n,matchmaking='random'):
+    # generates N list of groups of n students (peers) from among all the students who have graded ALL items of ALL expert-graded videos in ALL labs except labs 5 and 6
+    db.cursor.execute('''SELECT r.wID, count(r.response)
+            from responses r, experts e, rubrics b
+            where
+                r.URL = e.URL
+                and r.itemIndex = e.itemIndex
+                and r.labNumber = b.labNumber
+                and r.itemIndex = b.itemIndex
+                and b.graded and r.labNumber < 5
+                and r.response is not null 
+                GROUP BY r.wID order by r.wID''')
+    data = [[str(entry[0]),int(entry[1])] for entry in db.cursor.fetchall()]
+    validwIDs = [entry[0] for entry in data if entry[1]==120]
+    # for wID, wIDgroup in groupby(data, key = lambda x: x[0]):
+        # responses=[entry[1] for entry in wIDgroup]
+    # if int(responses)==120:
+    #     validwIDs.append(wID)
+    # we now select N combinations at random from the list of all possible combinations of n validwIDs. If N is greater than the number of possible combinations, then we just use all possible combinations
+    peerGroups = randomCombinations(validwIDs, Nmax, n)
+    return peerGroups
 
-calibAlgs = [BIBI_1,BIBI_0,woMean,offsetMean_0,offsetMean_1,pureOffset,medianAlg,meanAlg]
-algNamesStrings=[alg.name for alg in calibAlgs]
-
-plot = False
-sample = True
-gross = False
-errorReport = True
-N=10**5 # 149 students, so max number of groups is (N choose n)
-group = 'Public'
-db = SqliteDB("PHYS 2211 Fall 2013 "+group+".sqlite")
-db.cursor.execute("SELECT DISTINCT URL FROM experts WHERE practice AND URL is not Null")
-expertURLs = [str(entry[0]) for entry in db.cursor.fetchall()]
-if gross:
-    with open('Comparisons.csv','w') as csvFile:
-        csvWriter = csv.writer(csvFile, delimiter=',',quotechar='|',quoting=csv.QUOTE_MINIMAL)
-        csvWriter.writerow([""]+algNamesStrings+["Experts"])
-
-        for labNumber in [1,2,3,4]:
-            print("Plotting Lab "+str(labNumber)+'...')
-            db = SqliteDB("PHYS 2211 Fall 2013 Campus.sqlite")
-
-            db.cursor.execute("SELECT DISTINCT URL FROM experts WHERE practice AND labNumber = ?",[labNumber])
-            expertURLs = [str(entry[0]) for entry in db.cursor.fetchall()]
-
-
-            doOnce = True   # do once PER LABNUMBER
-
-            for i in range(len(expertURLs)):    # cycle over each video
-                expertURL = expertURLs[i]
-                BIBI_1Grade, BIBI_1Vector = getCalibratedGrade(db,expertURL,weightedSumMedianFallback,weightBIBI)
-                BIBI_0Grade, BIBI_0Vector = getCalibratedGrade(db,expertURL,weightedSumMedianFallback,weightDIBI_1)
-                winnersOnlyMedianGrade, winnersOnlyMedianVector = getCalibratedGrade(db,expertURL,sumWinnersMedian,weightDIBI_1)
-                winnersOnlyMeanGrade, winnersOnlyMeanVector = getCalibratedGrade(db,expertURL,sumWinnersMean,weightDIBI_1)
-                medianGrade, medianVector = getCalibratedGrade(db,expertURL,sumMedian)
-                meanGrade, meanVector = getCalibratedGrade(db,expertURL,sumMean)
-                expertGrade, expertVector = getExpertGrade(db,expertURL)
-                R = len(expertVector)
-
-                csvWriter.writerow([getYoutubeID(expertURL)+' score',BIBI_1Grade,BIBI_0Grade,winnersOnlyMedianGrade,winnersOnlyMeanGrade,medianGrade,meanGrade,expertGrade])
-
-                calibratedVectors = [BIBI_1Vector,BIBI_0Vector,winnersOnlyMedianVector,winnersOnlyMeanVector,medianVector,meanVector]
-
-                differenceVectors = [[calibratedVectors[l][m] - expertVector[m] for m in range(len(expertVector))] for l in range(len(calibratedVectors))]
-
-                # Start gathering the means
-                nAlgs = len(differenceVectors)   # "number of algorithms"
-                nVids = len(expertURLs) # "number of URLs"
-                if doOnce:
-                    fig = plt.figure(figsize=(4*len(calibratedVectors),7.5))
-                    fig.suptitle('Lab '+str(labNumber)+' Practice Videos (Campus)')
-                    diffMeans = [0]*nAlgs
-                    sqdiffMeans = [0]*nAlgs
-                    doOnce = False
-                # for ii in range(nAlgs):
-                #     diffMeans[ii] += sum([abs(diff) for diff in differenceVectors[ii]])/len(expertURLs)
-
-                # csvWriter.writerow([expertURL]+[str(sum([abs(entry) for entry in differenceVector])) for differenceVector in differenceVectors])
-                for j in range(nAlgs):
-                    # Calculate the difference measures
-                    diff = 0
-                    squareDiff = 0
-                    for k in range(len(differenceVectors[j])):
-                        diff += abs(differenceVectors[j][k])
-                        squareDiff += differenceVectors[j][k]**2
-                    # squareDiff = squareDiff**(0.5)
-                    diffMeans[j] += diff/nVids
-                    sqdiffMeans[j] += squareDiff/nVids
-                    # Plotting
-                    if plot:
-                        ax = fig.add_subplot(len(expertURLs),nAlgs, nAlgs*i + j+1)
-                        bars = ax.bar([0,1,2,3,4,5],calibratedVectors[j],color = 'r',alpha = 0.35,label='Student Grades')
-                        ax.bar([0,1,2,3,4,5],expertVector,color = 'b', alpha = 0.35,label='Expert Grades')
-                        ax.set_ylim([0,12])
-                        ax.set_xticks([0.5,1.5,2.5,3.5,4.5,5.5])
-                        ax.set_xticklabels([1,2,3,4,5,6])
-
-                        for k in range(len(differenceVectors[j])):
-                            ax.text([0.5,1.5,2.5,3.5,4.5,5.5][k],min(calibratedVectors[j][k]+0.3,11),str('%+.2f' % differenceVectors[j][k]),horizontalalignment='center')
-                        if j == 0:
-                            ax.set_ylabel(expertURLs[i]+'\n\nScore')
-                        if i == 0:
-                            ax.set_title(algNamesStrings[j]+'\n')
-                            if j == 0:
-                                ax.legend(bbox_to_anchor=(0.55,0.15))
-                        if i == len(expertURLs)-1:
-                            ax.set_xlabel('Rubric Item')
-
-                        ax.text(3,12.3,u"∑|∆s|="+str('%.2f' % diff)+u"  ∑∆s^2="+str('%.2f' % squareDiff),horizontalalignment='center')
-
-            if plot:
-                plt.savefig('/Users/Scott/Desktop/Lab '+str(labNumber)+' Practice Comparison.png')
-        if plot:
-            fig = plt.figure(figsize=(2*len(calibratedVectors),15))
-            ax = fig.add_subplot(2,1,1)
-            ax.bar(range(len(calibratedVectors)),diffMeans,label=u'mean(∑|∆s|)',width=1)
-            ax.set_title(u'Mean ∑|∆s| per video')
-            ax.set_xticks([])
-            ax.set_xticklabels([])
-            ax = fig.add_subplot(2,1,2)
-            ax.bar(range(len(calibratedVectors)),sqdiffMeans,label=u'mean(∑(∆s)^2)',width=1)
-            ax.set_title(u'Mean ∑(∆s)^2 per video')
-            ax.set_xticks([num +0.5 for num in range(len(calibratedVectors))])
-            ax.set_xticklabels(algNamesStrings,rotation=45)
-            plt.savefig('/Users/Scott/Desktop/Algorithm Comparison.png')
-
-        csvWriter.writerow(["Mean sum(abs(diff)):"]+[str('%.2f'%num) for num in diffMeans])
-        csvWriter.writerow(["Mean sqrt(sum(diff^2)):"]+[str('%.2f'%num) for num in sqdiffMeans])
-for group in ['Public']:
-    # Got partway through Public n=3
-    for n in [6,10,20,50,100]:
-        if sample:
-            with open('Full Algorithm Comparison '+group+' n='+str(n)+'.csv','w') as outputFile:
-                output = csv.writer(outputFile, delimiter=',',quotechar = '|',quoting=csv.QUOTE_MINIMAL)
-                output.writerow(['<∑(∆s)^2>'])
-                output.writerow(['']+algNamesStrings)
-                for URL in expertURLs:
-                    outputString = []
-                    with open('./Sample Grades/SampleGrades '+getYoutubeID(URL)+' '+group+' n='+str(n)+'.csv','w') as csvFile:
-                        csvWriter = csv.writer(csvFile, delimiter=',',quotechar='|',quoting=csv.QUOTE_MINIMAL)
-                        csvWriter.writerow(['Algorithm',u'sum(delta s)^2 for one video with n='+str(n)+' graders'])
-
-
-                        data = {}
-                        for alg in calibAlgs:
-                            print("Sampling "+alg.name+" "+group+" n="+str(n)+'...')
-                            data.update({alg.name:{'sqDiffs':[],'grades':[]}})
-                            random.seed=(342394857928347)
-                            expertGrade, calibGrades, sqDiffs, Nstudents = getSampleGrades(db,URL,n,N,alg,allCombinations=False)
-                            data[alg.name]['sqDiffs']=sqDiffs
-                            data[alg.name]['grades']=calibGrades
-                            csvWriter.writerow([alg.name]+data[alg.name]['sqDiffs'])
-                            outputString.append(mean(sqDiffs))
-                    output.writerow([getYoutubeID(URL)]+outputString)
-                if plot:
-                        with open('SampleGrades '+group+' n='+str(n)+'.csv','r') as csvFile:
-                            csvReader = csv.reader(csvFile,delimiter=',',quotechar='|')
-                            next(csvReader, None)  # skip the first line (header)
-                            fig = plt.figure(figsize=(8*len(calibAlgs),7))
-                            doOnce = True
-                            for row in csvReader:
-                                algName = row[0]
-                                print("Plotting "+algName+'...')
-                                sqDiffs = [float(num) for num in row[1:]]
-                                ax = fig.add_subplot(1,len(calibAlgs),algNamesStrings.index(algName)+1)
-                                ax.hist(sqDiffs,histtype='step',bins=[i*25 for i in range(20)],label=algName)
-                                if doOnce:
-                                    ax.set_ylabel('Number of Groups')
-                                    doOnce = False
-                                else:
-                                    ax.set_yticklabels([])
-                                ax.set_xlabel(u'∑(∆s)^2')
-                                ax.set_title(algName)
-                                ax.set_ylim([0,N*len(expertURLs)/32])
-                                ax.set_xlim([0,500])
-                                ax.text(480,N*len(expertURLs)/32,'mean='+str('%.3f' % mean(sqDiffs))+'\nstDev='+str('%.3f' % std(sqDiffs)),verticalalignment='top',horizontalalignment='right')
-                            fig.suptitle(u"Distribution of ∑(∆s)^2 for N="+str(N)+" groups of n="+str(n)+" graders")
-                        # plt.show()
-                        plt.savefig('/Users/Scott/Desktop/AlgFigs/'+getYoutubeID(URL)+' Sample '+group+' N='+str(N)+' n='+str(n)+'.png')
-        # Now, calculate the standard error of the mean for each algorithm over all URLs.
-    if errorReport:
-        with open('Errors '+group+'.csv','w') as errorsFile:
-            errorsWriter = csv.writer(errorsFile, delimiter=',',quotechar = '|')
-            for n in [2,3,4,5,6,10,20,50,100]:
-                print('n='+str(n))
-                errorsWriter.writerow(['n='+str(n)]+algNamesStrings)
-                thisnErrors = {}
-                for algName in calibAlgs:
-                    thisnErrors.update({algName.name:[]})
-                for URL in expertURLs:
-                    print(URL)
-                    for file in listdir_nohidden('./Sample Grades/'):
-                        if getYoutubeID(URL) in file and 'n='+str(n)+'.csv' in file and group in file:
-                            errsByURL = []
-                            with open(file,'r') as nFile:
-                                nErrors = csv.reader(nFile,delimiter=',',quotechar='|')
-                                nErrors.next()
-                                Nstudents = getNstudents(db,URL)
-                                for row in nErrors:
-                                    alg = row[0]
-                                    errs = [float(entry) for entry in row[1:]]
-                                    thisnErrors[alg] += errs
-                                    # print(errs[0:20])
-                                    standardError = semFinite(errs,ncr(Nstudents,n))
-                                    # standardError = sem(errs)
-                                    errsByURL.append(standardError)
-                            errorsWriter.writerow([getYoutubeID(URL)]+errsByURL)
-                errorsWriter.writerow(['Overall Error']+[sem(thisnErrors[alg]) for alg in algNamesStrings])
-
-
+def generateErrors(db,simulation):
+    # generate all the square errors for each simulation (=a unique URL, N, n, and algorithm)
+    db.cursor.execute('''INSERT INTO squareErrors (simulation, peerGroup, squareError) 
+            SELECT simulation, peerGroup, SUM((simulatedScore - expertScore)*(simulatedScore-expertScore))
+            FROM simulatedScores
+            WHERE simulation = ?
+            GROUP BY peerGroup''',[simulation])
 
 

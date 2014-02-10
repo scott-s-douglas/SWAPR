@@ -6,6 +6,10 @@ def exportWebassign(filename,db,labNumber):
     db.cursor.execute("SELECT DISTINCT wID FROM assignments WHERE labNumber = ?",[labNumber])
     wIDs = [str(item[0]) for item in db.cursor.fetchall()]
 
+    db.cursor.execute("SELECT count(DISTINCT URL) FROM experts WHERE labNumber = ? AND NOT hidden",[labNumber])
+    evalStartIndex = int(db.cursor.fetchone()[0]) # The webassign evaluation assignment will contain URLs from getURLsToGrade starting with the evalStartIndex-th entry; this excludes the practice and unhidden calibration videos
+    print('evalStartIndex='+str(evalStartIndex))
+
     with open(filename,'w') as output:
         output.write('<eqn>\n'
             '#!/usr/bin/env perl\n'
@@ -13,7 +17,7 @@ def exportWebassign(filename,db,labNumber):
 
         for wID in wIDs:
             # if db.getURL(wID,labNumber) not in ['',None]:
-            output.write(getPerlLinksLine(wID,db.getURLsToGrade(wID,labNumber)))
+            output.write(getPerlLinksLine(wID,db.getURLsToGrade(wID,labNumber)[evalStartIndex:]))
         output.write(');\n\n')
 
         output.write('sub get_link {\n'
